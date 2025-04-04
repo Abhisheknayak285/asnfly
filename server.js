@@ -1,4 +1,4 @@
-// server.js - Uses Replit DB for Auth/Balance & Bcrypt for Passwords (with REFINED getUserData fix & DEBUG LOGS)
+// server.js - Uses Replit DB, Bcrypt, Synced Game, Manual Deposit Logging (with setUserData verification)
 
 const express = require('express');
 const path = require('path');
@@ -33,7 +33,7 @@ let nextStateTimeoutId = null;
 let players = {}; // In-memory bet/cashout status for CURRENT round: { socket.id: { betAmount: number, cashedOutAt: number | null } }
 let gameHistory = [];
 let onlineUsers = {}; // In-memory map: { socket.id: username }
-const INITIAL_BALANCE = 10; // Set initial balance to 10 for new users
+const INITIAL_BALANCE = 10; // Initial balance for new users
 
 // --- Serve Static Files ---
 app.use(express.static(path.join(__dirname, 'public')));
@@ -41,7 +41,7 @@ app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-// --- Database Helper Functions ---
+// --- Database Helper Functions (Using Replit DB) ---
 
 // Gets user data object { passwordHash, balance } OR null if not found/error (REFINED VERSION)
 async function getUserData(username) {
@@ -59,26 +59,19 @@ async function getUserData(username) {
              console.log(`[getUserData REFINED DEBUG] db.get returned null/undefined. User not found.`);
              return null;
         }
-
-        // Check 2: Is it the specific {ok: false} error structure? If so, treat as not found/error.
+        // Check 2: Is it the specific {ok: false} error structure? (Handle just in case Replit DB API changes/errors)
          if (typeof rawData === 'object' && rawData !== null && rawData.ok === false) {
              console.log(`[getUserData REFINED DEBUG] db.get returned {ok: false}. User not found or error.`);
              return null;
         }
-
-        // Check 3: Is it the specific {ok: true, value: ...} wrapper structure?
+        // Check 3: Is it the specific {ok: true, value: ...} wrapper structure? (Handle just in case)
         if (typeof rawData === 'object' && rawData !== null && rawData.ok === true && rawData.hasOwnProperty('value')) {
             console.log(`[getUserData REFINED DEBUG] Found wrapped data {ok: true} for key '${key}'. Returning inner value.`);
-            // Return the actual user data stored in the 'value' property.
-            // Also handle if 'value' itself is null/undefined inside the wrapper.
             return rawData.value || null;
         }
-
-        // Fallback: If it's not null and not the known {ok:...} structures,
-        // assume it might be the direct user data object itself (less likely now).
-        console.warn(`[getUserData REFINED DEBUG] db.get returned unexpected structure for key '${key}'. Assuming it's direct user data.`);
-        return rawData;
-
+        // Fallback: Assume it's the direct user data object.
+        console.log(`[getUserData REFINED DEBUG] User data found for key '${key}'. Returning raw data.`); // Changed from warn to log
+        return rawData; // Return the actual user data object
     } catch (error) {
         // *** DEBUG LOG ***
         console.error(`[getUserData REFINED DEBUG] Exception during db.get for key '${key}':`, error);
@@ -87,36 +80,66 @@ async function getUserData(username) {
 }
 
 
-// Sets user data object { passwordHash, balance } in Replit DB
+// Sets user data object { passwordHash, balance } in Replit DB (with verification read)
 async function setUserData(username, data) {
     if (!username) return false;
+    const key = "user_" + username.toLowerCase();
     try {
-        const key = "user_" + username.toLowerCase();
-        await db.set(key, data); // Store the plain data object
-        console.log(`[setUserData] Successfully set data for key '${key}'`);
-        return true;
+        // --- Step 1: Attempt to Save ---
+        console.log(`[setUserData DEBUG] Attempting to set key '${key}' with data:`, JSON.stringify(data));
+        await db.set(key, data); // The write command
+        console.log(`[setUserData DEBUG] db.set command completed for key '${key}'.`); // Log success *after* await
+
+        // --- Step 2: Immediately Try to Read Back ---
+        console.log(`[setUserData DEBUG] Verifying data immediately after set for key '${key}'...`);
+        const writtenData = await db.get(key); // Read back using the same key
+        console.log(`[setUserData DEBUG] Data read back immediately for key '${key}':`, JSON.stringify(writtenData));
+
+        // --- Step 3: Check if Read-Back was Successful ---
+        // Use a basic check: Is what we read back not null/undefined/error object?
+        if (writtenData === null || typeof writtenData === 'undefined' || (typeof writtenData === 'object' && writtenData !== null && writtenData.ok === false)) {
+             console.error(`[setUserData DEBUG] VERIFICATION FAILED! Data for '${key}' was null or error object after setting.`);
+             // Optionally try deleting the key if saving half-failed? await db.delete(key);
+             return false; // Indicate overall failure if verification fails
+        }
+        // Add specific check if wrapped data's value is missing (if db.get returned {ok:true, value:null})
+        if (typeof writtenData === 'object' && writtenData !== null && writtenData.ok === true && !writtenData.hasOwnProperty('value')) {
+             console.error(`[setUserData DEBUG] VERIFICATION FAILED! Read back wrapper for '${key}' but value was missing.`);
+             return false;
+        }
+
+        // If verification didn't explicitly fail, assume success for now.
+        console.log(`[setUserData DEBUG] Verification successful (read back data) for key '${key}'.`);
+        return true; // Return true indicating perceived success
+
     } catch (error) {
-        console.error(`[setUserData] Error setting data for user ${username}:`, error);
-        return false;
+        // This catches errors from either db.set OR the verification db.get
+        console.error(`[setUserData DEBUG] Error during db.set or verification read for user ${username}:`, error);
+        return false; // Return false on any error in the process
     }
 }
+
 
 // Updates only the balance for a user in Replit DB
 async function updateUserBalance(username, newBalance) {
     if (!username) return false;
     try {
+        const key = "user_" + username.toLowerCase();
         // Use the refined getUserData to get the current user object correctly
         const currentUserData = await getUserData(username);
-        if (!currentUserData) { // Check if user actually exists (getUserData returns null if not)
+        if (!currentUserData) { // Check if user actually exists
             console.error(`[updateUserBalance] Cannot update balance, user ${username} not found.`);
             return false;
         }
         // Modify the retrieved user data object's balance property
         currentUserData.balance = parseFloat(newBalance.toFixed(2)); // Ensure number, 2 decimals
-        // Use setUserData to save the entire modified object back
+        // Use setUserData (which uses db.set) to save the entire modified object back
+        // Note: setUserData now includes verification read
         const success = await setUserData(username, currentUserData);
         if (success) {
-           console.log(`[updateUserBalance] Updated balance for ${username} to ${currentUserData.balance}`);
+           console.log(`[updateUserBalance] Updated balance for ${username} to ${currentUserData.balance} (setUserData reported success)`);
+        } else {
+           console.error(`[updateUserBalance] Failed to update balance for ${username} (setUserData reported failure)`);
         }
         return success;
     } catch (error) {
@@ -135,31 +158,21 @@ app.post('/login', async (req, res) => {
          console.log("[Login Route DEBUG] Missing username or password in request.");
          return res.status(400).json({ status: 'error', message: 'Missing credentials' });
     }
-
-    // *** DEBUG LOG ***
     console.log(`[Login Route DEBUG] Login attempt for username: ${username}`);
     const userData = await getUserData(username); // Uses the REFINED version with logs
-    // *** DEBUG LOG ***
     console.log(`[Login Route DEBUG] User data retrieved by login route for ${username}:`, JSON.stringify(userData));
 
-    // Check if user data was retrieved successfully (is not null) and has a password hash
     if (!userData || !userData.passwordHash) {
         console.log(`[Login Route DEBUG] Login failed because user ${username} not found in DB (userData is null/falsy) or passwordHash missing.`);
-        return res.json({ status: 'error', message: 'Invalid username or password' }); // Keep error generic
+        return res.json({ status: 'error', message: 'Invalid username or password' });
     }
-
-    // *** DEBUG LOG ***
     console.log(`[Login Route DEBUG] Comparing provided password "${password}" (length ${password?.length}) with stored hash "${userData.passwordHash}"`);
-
     try {
-        // Compare submitted password with stored hash using bcrypt
         const match = await bcrypt.compare(password, userData.passwordHash);
-        // *** DEBUG LOG ***
-        console.log(`[Login Route DEBUG] bcrypt.compare result (passwords match?): ${match}`); // Log boolean result
-
+        console.log(`[Login Route DEBUG] bcrypt.compare result (passwords match?): ${match}`);
         if (match) {
             console.log(`[Login Route DEBUG] Passwords match for ${username}. Login successful.`);
-            res.json({ status: 'success', username: username }); // Send username back
+            res.json({ status: 'success', username: username });
         } else {
             console.log(`[Login Route DEBUG] Passwords DO NOT match for ${username}.`);
             res.json({ status: 'error', message: 'Invalid username or password' });
@@ -170,48 +183,34 @@ app.post('/login', async (req, res) => {
     }
 });
 
-// REGISTER Endpoint (with Debugging)
+// REGISTER Endpoint (with Enhanced Debugging)
 app.post('/register', async (req, res) => {
     const { username, password } = req.body;
     if (!username || !password || username.length < 3 || password.length < 6) {
          return res.status(400).json({ status: 'error', message: 'Username >= 3 chars, Password >= 6 chars.' });
     }
-
-    // *** DEBUG LOG ***
     console.log(`[Register Route DEBUG] Registration attempt: ${username}`);
     const existingUser = await getUserData(username); // Calls the updated function
-    // *** DEBUG LOG ***
     console.log(`[Register Route DEBUG] Value of existingUser BEFORE 'if' check:`, JSON.stringify(existingUser));
 
-    // This check should now ONLY be true if getUserData found and returned the actual user data object
     if (existingUser !== null) {
-        // *** DEBUG LOG ***
         console.log(`[Register Route DEBUG] existingUser is NOT strictly null ('${JSON.stringify(existingUser)}'), sending 'Username already exists' error.`);
         return res.json({ status: 'error', message: 'Username already exists' });
     }
-
-    // *** DEBUG LOG ***
     console.log(`[Register Route DEBUG] existingUser IS null, proceeding with registration...`);
     try {
-        // Hash the password before saving
         const passwordHash = await bcrypt.hash(password, saltRounds);
-        const newUser = {
-            passwordHash: passwordHash, // Store the hash
-            balance: INITIAL_BALANCE    // Set initial balance (now 10)
-        };
-        // Use the function to save the user data
-        const success = await setUserData(username, newUser);
-
-        if (success) {
-            // *** DEBUG LOG ***
-            console.log(`[Register Route DEBUG] Registration successful in DB for: ${username}`);
+        const newUser = { passwordHash: passwordHash, balance: INITIAL_BALANCE };
+        const success = await setUserData(username, newUser); // Calls helper with verification read
+        if (success) { // Check if setUserData (including verification) reported success
+            console.log(`[Register Route DEBUG] Registration appears successful in DB for: ${username}`);
             res.json({ status: 'success', message: 'Registration successful! Please log in.' });
         } else {
-            console.error(`[Register Route DEBUG] setUserData failed for ${username}`);
-            throw new Error("Failed to save user data."); // Trigger catch block
+            console.error(`[Register Route DEBUG] setUserData reported failure for ${username}`);
+            throw new Error("Failed to save or verify user data."); // Trigger catch block
         }
     } catch (err) {
-        console.error("[Register Route DEBUG] Error during password hashing or saving:", err);
+        console.error("[Register Route DEBUG] Error during password hashing or saving/verification:", err);
         res.status(500).json({ status: 'error', message: 'Server error during registration' });
     }
 });
@@ -230,103 +229,104 @@ function broadcastPlayerCount() { const count = Object.keys(onlineUsers).length;
 // --- Socket.IO Connection Handling (Uses Replit DB for Balance) ---
 io.on('connection', (socket) => {
     console.log('Client connected:', socket.id);
-
-    // Send initial game state and history
     socket.emit('gameState', { state: gameState, multiplier: currentMultiplier, duration: gameState === 'BETTING' ? BETTING_DURATION : (gameState === 'PREPARING' ? PREPARING_DURATION : 0) });
     socket.emit('historyUpdate', gameHistory);
     // Don't broadcast count or send balance until authenticated
 
-    // Client authenticates itself after successful HTTP login
     socket.on('authenticate', async (data) => {
         const username = data?.username;
-        const userData = await getUserData(username); // Check if user exists in DB
-
-        if (!username || !userData) { // Check if user data was actually found
-            console.log(`Authentication failed for socket ${socket.id} - user ${username} not found in DB.`);
-            socket.disconnect(true); // Disconnect invalid users
-            return;
+        const userData = await getUserData(username); // Uses refined function
+        if (!username || !userData) {
+            console.log(`Authentication failed for socket ${socket.id} - user ${username} not found.`);
+            socket.disconnect(true); return;
         }
         console.log(`Socket ${socket.id} authenticated as user ${username}`);
-        onlineUsers[socket.id] = username; // Map socket ID to username
-
-        socket.emit('balanceUpdate', { newBalance: userData.balance }); // Send balance from DB
-        broadcastPlayerCount(); // Update count now that user is authenticated
+        onlineUsers[socket.id] = username;
+        socket.emit('balanceUpdate', { newBalance: userData.balance }); // Send DB balance
+        broadcastPlayerCount();
     });
 
-    // Handle 'placeBet'
     socket.on('placeBet', async (data) => {
         const username = onlineUsers[socket.id];
-        if (!username) { return socket.emit('betError', { message: "Not authenticated." }); }
-        if (gameState !== 'BETTING') { return socket.emit('betError', { message: "Betting phase is over." }); }
-
+        if (!username) return socket.emit('betError', { message: "Not authenticated." });
+        if (gameState !== 'BETTING') return socket.emit('betError', { message: "Betting phase is over." });
         const amount = parseInt(data?.amount);
-        if (isNaN(amount) || amount <= 0) { return socket.emit('betError', { message: "Invalid bet amount." }); }
+        if (isNaN(amount) || amount <= 0) return socket.emit('betError', { message: "Invalid bet amount." });
 
-        const userData = await getUserData(username); // Get current data from DB
+        const userData = await getUserData(username); // Get current balance from DB
         if (!userData || userData.balance < amount) {
             return socket.emit('betError', { message: "Insufficient balance." });
         }
-
         let newBalance = userData.balance - amount;
         let updateSuccess = await updateUserBalance(username, newBalance); // Update in DB
 
         if (updateSuccess) {
-            players[socket.id] = { betAmount: amount, cashedOutAt: null }; // Track bet for the round
-            console.log(`Player ${username} (${socket.id}) bet ${amount}. New balance: ${newBalance}`);
+            players[socket.id] = { betAmount: amount, cashedOutAt: null };
+            console.log(`Player ${username} bet ${amount}. New balance: ${newBalance}`);
             socket.emit('betSuccess', { amount: amount });
-            socket.emit('balanceUpdate', { newBalance: newBalance }); // Confirm balance update
-        } else {
-             console.error(`Failed to update balance in DB after bet for ${username}`);
-             socket.emit('betError', { message: "Failed to place bet (server error)." });
-        }
+            socket.emit('balanceUpdate', { newBalance: newBalance });
+        } else { socket.emit('betError', { message: "Failed to place bet (server error)." }); }
     });
 
-    // Handle 'cashOut'
     socket.on('cashOut', async () => {
         const username = onlineUsers[socket.id];
-        if (!username) return; // Not authenticated
-        if (gameState !== 'RUNNING') { return; } // Can only cash out while running
-
+        if (!username) return;
+        if (gameState !== 'RUNNING') return;
         const player = players[socket.id];
-        if (!player || player.cashedOutAt !== null) { return; } // No bet or already cashed out
+        if (!player || player.cashedOutAt !== null) return;
 
-        player.cashedOutAt = currentMultiplier; // Mark cashout multiplier locally for this round
-
+        player.cashedOutAt = currentMultiplier;
         const winnings = player.betAmount * player.cashedOutAt;
-        const userData = await getUserData(username); // Get current data from DB
+        const userData = await getUserData(username); // Get current balance from DB
         if (userData === null) {
              console.error(`Could not read user data for ${username} during cashout.`);
-             socket.emit('cashOutSuccess', { multiplier: currentMultiplier, amount: player.betAmount }); // Ack but no balance update sent
-             return;
+             socket.emit('cashOutSuccess', { multiplier: currentMultiplier, amount: player.betAmount }); return;
         }
-
         let newBalance = userData.balance + winnings;
         let updateSuccess = await updateUserBalance(username, newBalance); // Update in DB
 
         if (updateSuccess) {
-            console.log(`Player ${username} (${socket.id}) cashed out at ${currentMultiplier}x, won ${winnings.toFixed(2)}. New balance: ${newBalance}`);
+            console.log(`Player ${username} cashed out at ${currentMultiplier}x, won ${winnings.toFixed(2)}. New balance: ${newBalance}`);
             socket.emit('cashOutSuccess', { multiplier: currentMultiplier, amount: player.betAmount });
-            socket.emit('balanceUpdate', { newBalance: newBalance }); // Send updated balance
+            socket.emit('balanceUpdate', { newBalance: newBalance });
         } else {
              console.error(`Could not update balance for ${username} after cashout.`);
-             socket.emit('cashOutSuccess', { multiplier: currentMultiplier, amount: player.betAmount }); // Still acknowledge cashout attempt
+             socket.emit('cashOutSuccess', { multiplier: currentMultiplier, amount: player.betAmount });
         }
     });
 
-    // Handle client disconnection
+    // Listener for Manual Deposit Requests
+    socket.on('submitDepositRequest', async (data) => {
+        const username = onlineUsers[socket.id];
+        if (!username) return socket.emit('depositResult', { success: false, message: "Authentication error." });
+        const transactionId = data?.transactionId?.trim();
+        if (!transactionId || transactionId.length < 10 || transactionId.length > 20) { return socket.emit('depositResult', { success: false, message: "Invalid Transaction ID format." }); }
+
+        console.log(`Received deposit request from ${username} (Socket: ${socket.id}) - Txn ID: ${transactionId}`);
+        const requestKey = `deposit_${Date.now()}_${username}`;
+        const requestData = { username: username, transactionId: transactionId, status: 'pending', requestedAt: new Date().toISOString() };
+        try {
+            await db.set(requestKey, requestData); // Save request to Replit DB
+            console.log(`Stored deposit request under key: ${requestKey}`);
+            socket.emit('depositResult', { success: null, pending: true, message: "Deposit submitted for manual review. Balance will be updated after verification." });
+        } catch (err) {
+            console.error(`Error saving deposit request for ${username} (Txn: ${transactionId}):`, err);
+            socket.emit('depositResult', { success: false, message: "Error submitting request. Please try again." });
+        }
+    });
+
     socket.on('disconnect', () => {
         const username = onlineUsers[socket.id];
         console.log(`Client disconnected: ${socket.id}` + (username ? ` (${username})` : ''));
-        delete players[socket.id];      // Remove from active round players
-        delete onlineUsers[socket.id];  // Remove from username map
-        // Balance persists in DB, no need to delete from memory here
-        broadcastPlayerCount(); // Update count after user mapping removed
+        delete players[socket.id]; delete onlineUsers[socket.id];
+        broadcastPlayerCount();
     });
 });
 
 // --- Start the Server ---
 server.listen(port, () => {
-    console.log(`Crash Game Server listening on port ${port}`);
+    console.log(`Crash Game Server (Replit DB) listening on port ${port}`);
     // Start the game cycle
     setBettingState();
 });
+const Database = require("@replit/database")

@@ -1,10 +1,12 @@
-// public/script.js - Client for Synchronized Crash Game - FULL VERSION
+// public/script.js - Client for Synchronized Game with Manual Deposit Submission
 
 document.addEventListener('DOMContentLoaded', () => {
-    console.log("Full Multiplayer crash game client script loaded.");
+    console.log("Full client script loaded (Manual Deposit Version).");
+    // --- Current Time Context ---
+    console.log("Current time:", new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" }), "(IST)");
+
 
     // --- Get DOM Elements ---
-    // Auth
     const authContainer = document.getElementById('authContainer');
     const gameWrapper = document.getElementById('gameWrapper');
     const loginForm = document.getElementById('loginForm');
@@ -20,7 +22,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const registerButton = document.getElementById('registerButton');
     const showRegisterLink = document.getElementById('showRegister');
     const showLoginLink = document.getElementById('showLogin');
-    // Game Core
+    // Game elements
     const multiplierDisplay = document.getElementById('multiplier');
     const gameStatusDisplay = document.getElementById('gameStatus');
     const rocket = document.getElementById('rocket');
@@ -92,6 +94,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function clearRegisterError() { if(registerError) { registerError.textContent = ''; registerError.classList.remove('show', 'success-message'); } }
     function showGameNotification(message, type = 'error', duration = 3000) { if (!gameNotification) return; if (notificationTimeout) { clearTimeout(notificationTimeout); } gameNotification.textContent = message; gameNotification.className = 'game-notification'; if (type) { gameNotification.classList.add(type); } gameNotification.classList.add('show'); notificationTimeout = setTimeout(() => { gameNotification.classList.remove('show'); }, duration); }
 
+
     // --- Show/Hide Auth vs Game ---
     function showGameScreen() { if (!authContainer || !gameWrapper) return; console.log("Showing game screen..."); authContainer.classList.add('hidden'); gameWrapper.classList.remove('hidden'); if(gameStatusDisplay) gameStatusDisplay.textContent = "Connecting..."; if(multiplierDisplay) multiplierDisplay.textContent = "---"; if(balanceDisplay) balanceDisplay.textContent = "..."; if(playerCountDisplay) playerCountDisplay.textContent = "-"; if(mainHistoryDisplay) mainHistoryDisplay.innerHTML = ''; closeAllPopups(); }
     function showAuthScreen() { if (!authContainer || !gameWrapper) return; console.log("Showing auth screen..."); if(socket) { socket.disconnect(); socket = null; } loggedInUsername = null; authContainer.classList.remove('hidden'); gameWrapper.classList.add('hidden'); clearLoginError(); clearRegisterError(); if(loginForm) loginForm.reset(); if(registerForm) registerForm.reset(); closeAllPopups(); }
@@ -122,14 +125,95 @@ document.addEventListener('DOMContentLoaded', () => {
         socket.on('playerCountUpdate', (data) => { console.log('Received player count update:', data.count); if (playerCountDisplay) { playerCountDisplay.textContent = data.count; } });
         socket.on('balanceUpdate', (data) => { console.log('Received balance update:', data.newBalance); if (balanceDisplay) { balanceDisplay.textContent = Math.floor(data.newBalance); } });
 
+        // *** Listener for Manual Deposit Result ***
+        socket.on('depositResult', (data) => {
+            console.log("Received depositResult:", data);
+            if (!depositStatus || !submitDepositButton || !transactionIdInput) return;
+
+            depositStatus.textContent = data.message; // Display message from server
+
+            if (data.success === true) { // Should not happen in manual flow, but handle
+                depositStatus.className = 'wallet-status success';
+                transactionIdInput.value = ''; transactionIdInput.disabled = false;
+                submitDepositButton.disabled = true;
+                if (paymentMethodSelect) paymentMethodSelect.value = ''; // Reset dropdown
+                if (upiDetailsDiv) upiDetailsDiv.classList.add('hidden');
+                if (qrCodeDetailsDiv) qrCodeDetailsDiv.classList.add('hidden');
+                if (transactionIdSection) transactionIdSection.classList.add('hidden');
+            } else if (data.success === false) { // Handle errors (e.g., invalid Txn ID format)
+                depositStatus.className = 'wallet-status error';
+                submitDepositButton.disabled = false; // Re-enable button on error
+                transactionIdInput.disabled = false; // Re-enable input
+            } else if (data.pending === true) { // Handle pending state (Manual Review)
+                depositStatus.className = 'wallet-status pending'; // Keep it yellow/pending
+                transactionIdInput.value = ''; // Clear input after submission
+                transactionIdInput.disabled = false; // Re-enable input for next time? Or keep disabled? Let's re-enable.
+                submitDepositButton.disabled = true; // Keep button disabled until next TxnID entered
+                 if (paymentMethodSelect) paymentMethodSelect.value = ''; // Optionally reset dropdown
+                 if (upiDetailsDiv) upiDetailsDiv.classList.add('hidden');
+                 if (qrCodeDetailsDiv) qrCodeDetailsDiv.classList.add('hidden');
+                 if (transactionIdSection) transactionIdSection.classList.add('hidden'); // Hide details after submit
+            }
+        });
+        // *** Add listener for Withdrawal Result (if implementing manual withdrawal later) ***
+        // socket.on('withdrawalResult', (data) => { ... });
+
+
     } // End of connectWebSocket
 
     // --- Functions to Send Actions to Server ---
     function placeBetAction() { if (currentServerState !== 'BETTING' || !betAmountInput) return; const amount = parseInt(betAmountInput.value); if (isNaN(amount) || amount <= 0) { showGameNotification("Please enter a valid bet amount > 0.", 'error'); return; } if (!socket || !socket.connected) { showGameNotification("Not connected to game server.", 'error'); return; } console.log(`Client sending 'placeBet' event with amount: ${amount}`); socket.emit('placeBet', { amount: amount }); if(mainActionButton) { mainActionButton.textContent = 'Placing Bet...'; mainActionButton.disabled = true; } }
     function cashOutAction() { if (currentServerState !== 'RUNNING' || !currentBetThisRound || hasCashedOutThisRound) return; if (!socket || !socket.connected) { showGameNotification("Not connected to game server.", 'error'); return; } console.log("Client sending 'cashOut' event"); socket.emit('cashOut'); if(mainActionButton) { mainActionButton.textContent = 'Cashing out...'; mainActionButton.disabled = true; } }
 
-    // --- Event Listeners Setup ---
+    // --- Wallet UI Functions ---
+    function resetWalletForms() { if (paymentMethodSelect) paymentMethodSelect.value = ''; if (upiDetailsDiv) upiDetailsDiv.classList.add('hidden'); if (qrCodeDetailsDiv) qrCodeDetailsDiv.classList.add('hidden'); if (transactionIdSection) transactionIdSection.classList.add('hidden'); if (transactionIdInput) transactionIdInput.value = ''; if (submitDepositButton) submitDepositButton.disabled = true; if (depositStatus) { depositStatus.textContent = ''; depositStatus.className = 'wallet-status'; } if (withdrawAmountInput) withdrawAmountInput.value = ''; if (userUpiIdInput) userUpiIdInput.value = ''; if (withdrawalStatus) { withdrawalStatus.textContent = ''; withdrawalStatus.className = 'wallet-status'; } if (submitWithdrawalButton) submitWithdrawalButton.disabled = false; if (transactionIdInput && submitDepositButton) submitDepositButton.disabled = (transactionIdInput.value.trim().length < 10); }
+    function setupWalletUI() {
+        if (showAddMoneyBtn) { showAddMoneyBtn.addEventListener('click', () => { if (addMoneySection) addMoneySection.classList.add('active'); if (withdrawMoneySection) withdrawMoneySection.classList.remove('active'); showAddMoneyBtn.classList.add('active'); if (showWithdrawMoneyBtn) showWithdrawMoneyBtn.classList.remove('active'); resetWalletForms(); }); }
+        if (showWithdrawMoneyBtn) { showWithdrawMoneyBtn.addEventListener('click', () => { if (addMoneySection) addMoneySection.classList.remove('active'); if (withdrawMoneySection) withdrawMoneySection.classList.add('active'); showWithdrawMoneyBtn.classList.add('active'); if (showAddMoneyBtn) showAddMoneyBtn.classList.remove('active'); resetWalletForms(); }); }
+        if (paymentMethodSelect) { paymentMethodSelect.addEventListener('change', () => { const method = paymentMethodSelect.value; if (upiDetailsDiv) upiDetailsDiv.classList.add('hidden'); if (qrCodeDetailsDiv) qrCodeDetailsDiv.classList.add('hidden'); if (transactionIdSection) transactionIdSection.classList.add('hidden'); if (submitDepositButton) submitDepositButton.disabled = true; if (depositStatus) depositStatus.textContent = ''; if (method === 'upi') { if (upiDetailsDiv) upiDetailsDiv.classList.remove('hidden'); if (transactionIdSection) transactionIdSection.classList.remove('hidden'); } else if (method === 'qr') { if (qrCodeDetailsDiv) qrCodeDetailsDiv.classList.remove('hidden'); if (transactionIdSection) transactionIdSection.classList.remove('hidden'); } if (transactionIdInput && submitDepositButton) submitDepositButton.disabled = (transactionIdInput.value.trim().length < 10); }); }
+        if (transactionIdInput && submitDepositButton) { transactionIdInput.addEventListener('input', () => { submitDepositButton.disabled = transactionIdInput.value.trim().length < 10; }); }
 
+        // Deposit Button (Manual Submission Flow)
+        if (submitDepositButton && transactionIdInput && depositStatus) {
+            submitDepositButton.addEventListener('click', () => {
+                const txnId = transactionIdInput.value.trim();
+                if (txnId.length < 10 || txnId.length > 20) { showGameNotification("Please enter a valid Transaction ID (UTR).", 'error'); return; } // Use game notification
+                if (!socket || !socket.connected) { showGameNotification("Not connected to server.", 'error'); return; }
+
+                depositStatus.textContent = 'Submitting request...'; depositStatus.className = 'wallet-status pending';
+                submitDepositButton.disabled = true; transactionIdInput.disabled = true;
+
+                console.log(`Client sending 'submitDepositRequest' with Txn ID: ${txnId}`);
+                socket.emit('submitDepositRequest', { transactionId: txnId });
+                // Server will respond via 'depositResult' event
+            });
+        }
+
+        // Withdrawal Button (Still DEMO logic - No server interaction yet)
+        if (submitWithdrawalButton && withdrawAmountInput && userUpiIdInput && withdrawalStatus) {
+            submitWithdrawalButton.addEventListener('click', () => {
+                const amount = parseFloat(withdrawAmountInput.value); const upiId = userUpiIdInput.value.trim();
+                withdrawalStatus.textContent = ''; withdrawalStatus.className = 'wallet-status';
+                if (isNaN(amount) || amount < 100) { withdrawalStatus.textContent = 'Minimum withdrawal is ₹100. (Demo)'; withdrawalStatus.className = 'wallet-status error'; return; }
+                if (!upiId || !upiId.includes('@')) { withdrawalStatus.textContent = 'Please enter a valid UPI ID. (Demo)'; withdrawalStatus.className = 'wallet-status error'; return; }
+                // ** NO client balance check - Server must do this **
+                withdrawalStatus.textContent = 'Processing withdrawal... (Demo)'; withdrawalStatus.className = 'wallet-status pending';
+                submitWithdrawalButton.disabled = true;
+                // ** TODO: Implement server-side withdrawal request logic **
+                // e.g., socket.emit('submitWithdrawalRequest', { amount: amount, upiId: upiId });
+                // For now, just simulate locally:
+                setTimeout(() => {
+                     withdrawalStatus.textContent = 'Withdrawal request submitted. (Demo - Balance update from server needed)';
+                     withdrawalStatus.className = 'wallet-status success';
+                     withdrawAmountInput.value = ''; userUpiIdInput.value = '';
+                     submitWithdrawalButton.disabled = false;
+                }, 2000);
+            });
+        }
+    } // End of setupWalletUI
+
+
+    // --- Event Listeners Setup ---
     // Login Form
     if (loginForm) { loginForm.addEventListener('submit', async (event) => { event.preventDefault(); clearLoginError(); const username = loginUsernameInput.value; const password = loginPasswordInput.value; if (!username || !password) { displayLoginError("Username and password required."); return; } if(loginButton) loginButton.disabled = true; try { const response = await fetch('/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username, password }) }); const data = await response.json(); if (response.ok && data.status === 'success') { loggedInUsername = data.username; showGameScreen(); connectWebSocket(); } else { displayLoginError(data.message || 'Login failed.'); } } catch (error) { console.error("Login fetch error:", error); displayLoginError('Network error or server unavailable.'); } finally { if(loginButton) loginButton.disabled = false; } }); }
     // Registration Form
@@ -149,20 +233,15 @@ document.addEventListener('DOMContentLoaded', () => {
     if (closeMenuButton) { closeMenuButton.addEventListener('click', () => closePopup(mainMenuPopup)); }
     document.addEventListener('click', (event) => { if (mainMenuPopup && !mainMenuPopup.classList.contains('hidden') && !mainMenuPopup.contains(event.target) && event.target !== menuIcon) { closePopup(mainMenuPopup); } if (walletPopup && !walletPopup.classList.contains('hidden') && !walletPopup.contains(event.target) && event.target !== menuWalletBtn) { closePopup(walletPopup); } if (autoPopup && !autoPopup.classList.contains('hidden') && !autoPopup.contains(event.target) && event.target !== menuAutoBtn) { closePopup(autoPopup); } });
     // Menu Item Buttons
-    if (menuWalletBtn) { menuWalletBtn.addEventListener('click', () => { closePopup(mainMenuPopup); openPopup(walletPopup); /* Add setupWalletUI() call here */ }); }
+    if (menuWalletBtn) { menuWalletBtn.addEventListener('click', () => { closePopup(mainMenuPopup); openPopup(walletPopup); }); } // Unrestricted wallet open
     if (closeWalletButton) { closeWalletButton.addEventListener('click', () => closePopup(walletPopup)); }
     if (menuAutoBtn) { menuAutoBtn.addEventListener('click', () => { closePopup(mainMenuPopup); openPopup(autoPopup); /* Add setupAutoPlay() if needed */ }); }
     if (closeAutoButton) { closeAutoButton.addEventListener('click', () => closePopup(autoPopup)); }
-    if (menuSoundBtn) { menuSoundBtn.addEventListener('click', toggleSound); updateSoundIcon(); }
+    if (menuSoundBtn) { menuSoundBtn.addEventListener('click', toggleSound); updateSoundIcon(); /* Set initial icon state */ }
     if (logoutButton) { logoutButton.addEventListener('click', () => { console.log("Logout clicked"); showAuthScreen(); }); } // Use showAuthScreen for logout
 
-    // --- Setup Wallet UI Listeners ---
-    // (Moved this function call down here to ensure elements exist)
-    function resetWalletForms() { if (paymentMethodSelect) paymentMethodSelect.value = ''; if (upiDetailsDiv) upiDetailsDiv.classList.add('hidden'); if (qrCodeDetailsDiv) qrCodeDetailsDiv.classList.add('hidden'); if (transactionIdSection) transactionIdSection.classList.add('hidden'); if (transactionIdInput) transactionIdInput.value = ''; if (submitDepositButton) submitDepositButton.disabled = true; if (depositStatus) { depositStatus.textContent = ''; depositStatus.className = 'wallet-status'; } if (withdrawAmountInput) withdrawAmountInput.value = ''; if (userUpiIdInput) userUpiIdInput.value = ''; if (withdrawalStatus) { withdrawalStatus.textContent = ''; withdrawalStatus.className = 'wallet-status'; } if (submitWithdrawalButton) submitWithdrawalButton.disabled = false; if (transactionIdInput && submitDepositButton) submitDepositButton.disabled = (transactionIdInput.value.trim().length < 10); }
-    function setupWalletUI() { if (showAddMoneyBtn) { showAddMoneyBtn.addEventListener('click', () => { if (addMoneySection) addMoneySection.classList.add('active'); if (withdrawMoneySection) withdrawMoneySection.classList.remove('active'); showAddMoneyBtn.classList.add('active'); if (showWithdrawMoneyBtn) showWithdrawMoneyBtn.classList.remove('active'); resetWalletForms(); }); } if (showWithdrawMoneyBtn) { showWithdrawMoneyBtn.addEventListener('click', () => { if (addMoneySection) addMoneySection.classList.remove('active'); if (withdrawMoneySection) withdrawMoneySection.classList.add('active'); showWithdrawMoneyBtn.classList.add('active'); if (showAddMoneyBtn) showAddMoneyBtn.classList.remove('active'); resetWalletForms(); }); } if (paymentMethodSelect) { paymentMethodSelect.addEventListener('change', () => { const method = paymentMethodSelect.value; if (upiDetailsDiv) upiDetailsDiv.classList.add('hidden'); if (qrCodeDetailsDiv) qrCodeDetailsDiv.classList.add('hidden'); if (transactionIdSection) transactionIdSection.classList.add('hidden'); if (submitDepositButton) submitDepositButton.disabled = true; if (depositStatus) depositStatus.textContent = ''; if (method === 'upi') { if (upiDetailsDiv) upiDetailsDiv.classList.remove('hidden'); if (transactionIdSection) transactionIdSection.classList.remove('hidden'); } else if (method === 'qr') { if (qrCodeDetailsDiv) qrCodeDetailsDiv.classList.remove('hidden'); if (transactionIdSection) transactionIdSection.classList.remove('hidden'); } if (transactionIdInput && submitDepositButton) submitDepositButton.disabled = (transactionIdInput.value.trim().length < 10); }); } if (transactionIdInput && submitDepositButton) { transactionIdInput.addEventListener('input', () => { submitDepositButton.disabled = transactionIdInput.value.trim().length < 10; }); } if (submitDepositButton) { submitDepositButton.addEventListener('click', () => { const txnId = transactionIdInput.value.trim(); if(depositStatus) { depositStatus.textContent = 'Processing deposit... (Demo)'; depositStatus.className = 'wallet-status pending'; } submitDepositButton.disabled = true; setTimeout(() => { const success = Math.random() > 0.2; if (success) { if(depositStatus) { depositStatus.textContent = 'Deposit successful! (Demo - Balance updated by server)'; depositStatus.className = 'wallet-status success'; } } else { if(depositStatus) { depositStatus.textContent = 'Deposit verification failed. (Demo)'; depositStatus.className = 'wallet-status error'; } } if(paymentMethodSelect) paymentMethodSelect.value = ''; if(upiDetailsDiv) upiDetailsDiv.classList.add('hidden'); if(qrCodeDetailsDiv) qrCodeDetailsDiv.classList.add('hidden'); if(transactionIdSection) transactionIdSection.classList.add('hidden'); if(transactionIdInput) transactionIdInput.value = ''; submitDepositButton.disabled = true; }, 2500); }); } if (submitWithdrawalButton) { submitWithdrawalButton.addEventListener('click', () => { const amount = parseFloat(withdrawAmountInput.value); const upiId = userUpiIdInput.value.trim(); if(withdrawalStatus) { withdrawalStatus.textContent = ''; withdrawalStatus.className = 'wallet-status'; } if (isNaN(amount) || amount < 100) { if(withdrawalStatus) { withdrawalStatus.textContent = 'Minimum withdrawal is ₹100. (Demo)'; withdrawalStatus.className = 'wallet-status error'; } return; } if (!upiId || !upiId.includes('@')) { if(withdrawalStatus) { withdrawalStatus.textContent = 'Please enter a valid UPI ID. (Demo)'; withdrawalStatus.className = 'wallet-status error'; } return; } if(withdrawalStatus) { withdrawalStatus.textContent = 'Processing withdrawal... (Demo)'; withdrawalStatus.className = 'wallet-status pending'; } submitWithdrawalButton.disabled = true; setTimeout(() => { if(withdrawalStatus) { withdrawalStatus.textContent = 'Withdrawal request submitted. (Demo - Balance updated by server)'; withdrawalStatus.className = 'wallet-status success'; } if (withdrawAmountInput) withdrawAmountInput.value = ''; if (userUpiIdInput) userUpiIdInput.value = ''; submitWithdrawalButton.disabled = false; }, 2000); }); } }
-    setupWalletUI(); // Call the function to attach wallet listeners
-
-    // --- Initial UI State ---
+    // --- Initialize UI ---
+    setupWalletUI(); // Setup listeners for wallet elements
     showAuthScreen(); // Start by showing the authentication screen
     updateHistoryDisplay([]); // Show empty history display initially
     if(playerCountDisplay) playerCountDisplay.textContent = '-'; // Placeholder count
