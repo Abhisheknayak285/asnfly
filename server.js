@@ -1,22 +1,60 @@
-// server.js - Uses Replit DB, Bcrypt, Synced Game, Manual Deposit Logging (with setUserData verification)
+// server.js - Uses Render PostgreSQL for Auth/Balance & Bcrypt for Passwords
 
 const express = require('express');
 const path = require('path');
 const http = require('http');
 const { Server } = require("socket.io");
-const Database = require("@replit/database"); // Import Replit Database client
+const { Pool } = require('pg'); // Import the pg Pool class for PostgreSQL
 const bcrypt = require('bcrypt'); // Import bcrypt for password hashing
 
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server);
-const db = new Database(process.env.REPLIT_DB_URL); // Initialize DB client
 
+// Use port provided by hosting environment (Render) or default to 3000
 const port = process.env.PORT || 3000;
 const saltRounds = 10; // Cost factor for bcrypt hashing
 
-// --- Middleware ---
-app.use(express.json()); // Needed to parse JSON body from client fetch requests
+// --- PostgreSQL Connection Pool ---
+// Reads the connection string from the DATABASE_URL environment variable
+if (!process.env.DATABASE_URL) {
+    console.error("FATAL ERROR: DATABASE_URL environment variable is not set!");
+    console.error("Please add DATABASE_URL to your Render Environment Variables.");
+    process.exit(1); // Stop the server if the database URL is missing
+}
+const pool = new Pool({
+    connectionString: process.env.DATABASE_URL,
+    // Render PostgreSQL might require SSL. Add this block if you get SSL connection errors.
+    // ssl: {
+    //   rejectUnauthorized: false
+    // }
+});
+
+// --- Function to Setup Database Table ---
+// Creates the 'users' table if it doesn't already exist when the server starts
+async function setupDatabase() {
+    const client = await pool.connect(); // Get a client from the pool
+    console.log("Checking/Creating database table 'users'...");
+    const createTableQuery = `
+    CREATE TABLE IF NOT EXISTS users (
+        id SERIAL PRIMARY KEY,
+        username VARCHAR(50) UNIQUE NOT NULL,
+        password_hash VARCHAR(60) NOT NULL,
+        balance DECIMAL(12, 2) DEFAULT 10.00 NOT NULL,
+        created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+    );
+    `;
+    try {
+        await client.query(createTableQuery); // Execute the create table command
+        console.log("Database table 'users' check/creation successful.");
+    } catch (err) {
+        console.error("ERROR creating/checking database table 'users':", err);
+        // Consider stopping the server if the table setup fails critically
+        // process.exit(1);
+    } finally {
+        client.release(); // VERY IMPORTANT: Release the client back to the pool
+    }
+}
 
 // --- Game State & Constants ---
 const BETTING_DURATION = 7000;
@@ -30,193 +68,157 @@ let crashPoint = 0;
 let gameStartTime = 0;
 let tickIntervalId = null;
 let nextStateTimeoutId = null;
-let players = {}; // In-memory bet/cashout status for CURRENT round: { socket.id: { betAmount: number, cashedOutAt: number | null } }
+let players = {}; // In-memory bet/cashout status for CURRENT round { socket.id: { betAmount: number, cashedOutAt: number | null } }
 let gameHistory = [];
 let onlineUsers = {}; // In-memory map: { socket.id: username }
-const INITIAL_BALANCE = 10; // Initial balance for new users
+const INITIAL_BALANCE = 10.00; // Initial balance for new users
+
+// --- Middleware ---
+app.use(express.json()); // To parse JSON from Fetch requests
 
 // --- Serve Static Files ---
 app.use(express.static(path.join(__dirname, 'public')));
-app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, 'public', 'index.html'));
-});
+app.get('/', (req, res) => { res.sendFile(path.join(__dirname, 'public', 'index.html')); });
 
-// --- Database Helper Functions (Using Replit DB) ---
+// --- PostgreSQL Database Helper Functions ---
 
-// Gets user data object { passwordHash, balance } OR null if not found/error (REFINED VERSION)
+// Gets user data { id, username, password_hash, balance } from DB
 async function getUserData(username) {
     if (!username) return null;
-    const key = "user_" + username.toLowerCase(); // Use consistent key format
-    // *** DEBUG LOG ***
-    console.log(`[getUserData REFINED DEBUG] Checking DB for key: '${key}'`);
+    const query = 'SELECT id, username, password_hash, balance FROM users WHERE username = $1';
+    const values = [username.toLowerCase()]; // Use parameterized query
+    let client;
     try {
-        const rawData = await db.get(key); // Get potentially wrapped data
-        // *** DEBUG LOG ***
-        console.log(`[getUserData REFINED DEBUG] db.get raw returned value for key '${key}':`, JSON.stringify(rawData));
-
-        // Check 1: Is the raw data exactly null or undefined? If so, user not found.
-        if (rawData === null || typeof rawData === 'undefined') {
-             console.log(`[getUserData REFINED DEBUG] db.get returned null/undefined. User not found.`);
-             return null;
+        client = await pool.connect();
+        const result = await client.query(query, values);
+        if (result.rows.length > 0) {
+            const user = result.rows[0];
+            user.balance = parseFloat(user.balance); // Ensure balance is number
+            // console.log(`[getUserData] Found user: ${username}`); // Optional log
+            return user;
+        } else {
+            // console.log(`[getUserData] User not found: ${username}`); // Optional log
+            return null;
         }
-        // Check 2: Is it the specific {ok: false} error structure? (Handle just in case Replit DB API changes/errors)
-         if (typeof rawData === 'object' && rawData !== null && rawData.ok === false) {
-             console.log(`[getUserData REFINED DEBUG] db.get returned {ok: false}. User not found or error.`);
-             return null;
-        }
-        // Check 3: Is it the specific {ok: true, value: ...} wrapper structure? (Handle just in case)
-        if (typeof rawData === 'object' && rawData !== null && rawData.ok === true && rawData.hasOwnProperty('value')) {
-            console.log(`[getUserData REFINED DEBUG] Found wrapped data {ok: true} for key '${key}'. Returning inner value.`);
-            return rawData.value || null;
-        }
-        // Fallback: Assume it's the direct user data object.
-        console.log(`[getUserData REFINED DEBUG] User data found for key '${key}'. Returning raw data.`); // Changed from warn to log
-        return rawData; // Return the actual user data object
-    } catch (error) {
-        // *** DEBUG LOG ***
-        console.error(`[getUserData REFINED DEBUG] Exception during db.get for key '${key}':`, error);
-        return null; // Return null on any exception
+    } catch (err) {
+        console.error(`Error in getUserData for ${username}:`, err);
+        return null;
+    } finally {
+        if (client) client.release(); // Release client in finally block
     }
 }
 
+// Creates a new user in the DB
+async function createUser(username, passwordHash) {
+     if (!username || !passwordHash) return false;
+     const query = 'INSERT INTO users (username, password_hash, balance) VALUES ($1, $2, $3) RETURNING id';
+     const values = [username.toLowerCase(), passwordHash, INITIAL_BALANCE];
+     let client;
+     try {
+        client = await pool.connect();
+        const result = await client.query(query, values);
+        console.log(`[createUser] User ${username} created with ID: ${result.rows[0].id}`);
+        return true;
+     } catch(err) {
+         if (err.code === '23505') { // Handle unique constraint violation
+             console.log(`[createUser] Attempted to register existing username: ${username}`);
+         } else {
+             console.error(`Error creating user ${username}:`, err);
+         }
+         return false; // Indicate failure
+     } finally {
+        if (client) client.release();
+     }
+}
 
-// Sets user data object { passwordHash, balance } in Replit DB (with verification read)
-async function setUserData(username, data) {
-    if (!username) return false;
-    const key = "user_" + username.toLowerCase();
+// Updates only the balance for a user
+async function updateUserBalance(username, newBalance) {
+    if (!username || typeof newBalance !== 'number') return false;
+    const query = 'UPDATE users SET balance = $1 WHERE username = $2';
+    // Ensure balance is formatted correctly for DECIMAL type in DB
+    const values = [newBalance.toFixed(2), username.toLowerCase()];
+    let client;
     try {
-        // --- Step 1: Attempt to Save ---
-        console.log(`[setUserData DEBUG] Attempting to set key '${key}' with data:`, JSON.stringify(data));
-        await db.set(key, data); // The write command
-        console.log(`[setUserData DEBUG] db.set command completed for key '${key}'.`); // Log success *after* await
-
-        // --- Step 2: Immediately Try to Read Back ---
-        console.log(`[setUserData DEBUG] Verifying data immediately after set for key '${key}'...`);
-        const writtenData = await db.get(key); // Read back using the same key
-        console.log(`[setUserData DEBUG] Data read back immediately for key '${key}':`, JSON.stringify(writtenData));
-
-        // --- Step 3: Check if Read-Back was Successful ---
-        // Use a basic check: Is what we read back not null/undefined/error object?
-        if (writtenData === null || typeof writtenData === 'undefined' || (typeof writtenData === 'object' && writtenData !== null && writtenData.ok === false)) {
-             console.error(`[setUserData DEBUG] VERIFICATION FAILED! Data for '${key}' was null or error object after setting.`);
-             // Optionally try deleting the key if saving half-failed? await db.delete(key);
-             return false; // Indicate overall failure if verification fails
-        }
-        // Add specific check if wrapped data's value is missing (if db.get returned {ok:true, value:null})
-        if (typeof writtenData === 'object' && writtenData !== null && writtenData.ok === true && !writtenData.hasOwnProperty('value')) {
-             console.error(`[setUserData DEBUG] VERIFICATION FAILED! Read back wrapper for '${key}' but value was missing.`);
+        client = await pool.connect();
+        const result = await client.query(query, values);
+        if (result.rowCount > 0) {
+            console.log(`[updateUserBalance] Updated DB balance for ${username} to ${newBalance.toFixed(2)}`);
+            return true;
+        } else {
+             console.error(`[updateUserBalance] User ${username} not found during balance update (rowCount was 0).`);
              return false;
         }
-
-        // If verification didn't explicitly fail, assume success for now.
-        console.log(`[setUserData DEBUG] Verification successful (read back data) for key '${key}'.`);
-        return true; // Return true indicating perceived success
-
-    } catch (error) {
-        // This catches errors from either db.set OR the verification db.get
-        console.error(`[setUserData DEBUG] Error during db.set or verification read for user ${username}:`, error);
-        return false; // Return false on any error in the process
-    }
-}
-
-
-// Updates only the balance for a user in Replit DB
-async function updateUserBalance(username, newBalance) {
-    if (!username) return false;
-    try {
-        const key = "user_" + username.toLowerCase();
-        // Use the refined getUserData to get the current user object correctly
-        const currentUserData = await getUserData(username);
-        if (!currentUserData) { // Check if user actually exists
-            console.error(`[updateUserBalance] Cannot update balance, user ${username} not found.`);
-            return false;
-        }
-        // Modify the retrieved user data object's balance property
-        currentUserData.balance = parseFloat(newBalance.toFixed(2)); // Ensure number, 2 decimals
-        // Use setUserData (which uses db.set) to save the entire modified object back
-        // Note: setUserData now includes verification read
-        const success = await setUserData(username, currentUserData);
-        if (success) {
-           console.log(`[updateUserBalance] Updated balance for ${username} to ${currentUserData.balance} (setUserData reported success)`);
-        } else {
-           console.error(`[updateUserBalance] Failed to update balance for ${username} (setUserData reported failure)`);
-        }
-        return success;
-    } catch (error) {
-        console.error(`[updateUserBalance] Error updating balance in DB for ${username}:`, error);
+    } catch (err) {
+        console.error(`Error updating balance for ${username}:`, err);
         return false;
+    } finally {
+        if (client) client.release();
     }
 }
 
+// --- Authentication HTTP Routes (Using PostgreSQL & Bcrypt) ---
 
-// --- Authentication HTTP Routes (Using Replit DB & Bcrypt + Debugging) ---
-
-// LOGIN Endpoint (with Enhanced Debugging)
+// LOGIN Endpoint
 app.post('/login', async (req, res) => {
     const { username, password } = req.body;
-    if (!username || !password) {
-         console.log("[Login Route DEBUG] Missing username or password in request.");
-         return res.status(400).json({ status: 'error', message: 'Missing credentials' });
-    }
-    console.log(`[Login Route DEBUG] Login attempt for username: ${username}`);
-    const userData = await getUserData(username); // Uses the REFINED version with logs
-    console.log(`[Login Route DEBUG] User data retrieved by login route for ${username}:`, JSON.stringify(userData));
+    if (!username || !password) { return res.status(400).json({ status: 'error', message: 'Missing credentials' }); }
+    console.log(`Login attempt: ${username}`);
+    const userData = await getUserData(username); // Get user from PostgreSQL
 
-    if (!userData || !userData.passwordHash) {
-        console.log(`[Login Route DEBUG] Login failed because user ${username} not found in DB (userData is null/falsy) or passwordHash missing.`);
+    if (!userData || !userData.password_hash) {
+        console.log(`Login failed (user ${username} not found or DB error).`);
         return res.json({ status: 'error', message: 'Invalid username or password' });
     }
-    console.log(`[Login Route DEBUG] Comparing provided password "${password}" (length ${password?.length}) with stored hash "${userData.passwordHash}"`);
+
     try {
-        const match = await bcrypt.compare(password, userData.passwordHash);
-        console.log(`[Login Route DEBUG] bcrypt.compare result (passwords match?): ${match}`);
+        const match = await bcrypt.compare(password, userData.password_hash);
+        console.log(`Login bcrypt.compare result for ${username}: ${match}`);
         if (match) {
-            console.log(`[Login Route DEBUG] Passwords match for ${username}. Login successful.`);
+            console.log(`Login successful: ${username}`);
             res.json({ status: 'success', username: username });
         } else {
-            console.log(`[Login Route DEBUG] Passwords DO NOT match for ${username}.`);
+            console.log(`Login failed (password mismatch): ${username}`);
             res.json({ status: 'error', message: 'Invalid username or password' });
         }
     } catch (compareError) {
-         console.error(`[Login Route DEBUG] Error during bcrypt.compare for ${username}:`, compareError);
-         res.status(500).json({ status: 'error', message: 'Server error during login comparison' });
+         console.error(`Error during bcrypt.compare for ${username}:`, compareError);
+         res.status(500).json({ status: 'error', message: 'Server error during login' });
     }
 });
 
-// REGISTER Endpoint (with Enhanced Debugging)
+// REGISTER Endpoint
 app.post('/register', async (req, res) => {
     const { username, password } = req.body;
     if (!username || !password || username.length < 3 || password.length < 6) {
          return res.status(400).json({ status: 'error', message: 'Username >= 3 chars, Password >= 6 chars.' });
     }
-    console.log(`[Register Route DEBUG] Registration attempt: ${username}`);
-    const existingUser = await getUserData(username); // Calls the updated function
-    console.log(`[Register Route DEBUG] Value of existingUser BEFORE 'if' check:`, JSON.stringify(existingUser));
+    console.log(`Registration attempt: ${username}`);
 
-    if (existingUser !== null) {
-        console.log(`[Register Route DEBUG] existingUser is NOT strictly null ('${JSON.stringify(existingUser)}'), sending 'Username already exists' error.`);
+    const existingUser = await getUserData(username);
+    if (existingUser) { // Check if user data was found
         return res.json({ status: 'error', message: 'Username already exists' });
     }
-    console.log(`[Register Route DEBUG] existingUser IS null, proceeding with registration...`);
+
     try {
         const passwordHash = await bcrypt.hash(password, saltRounds);
-        const newUser = { passwordHash: passwordHash, balance: INITIAL_BALANCE };
-        const success = await setUserData(username, newUser); // Calls helper with verification read
-        if (success) { // Check if setUserData (including verification) reported success
-            console.log(`[Register Route DEBUG] Registration appears successful in DB for: ${username}`);
+        const success = await createUser(username, passwordHash); // Create user in PostgreSQL
+
+        if (success) {
+            console.log(`Registration successful: ${username}`);
             res.json({ status: 'success', message: 'Registration successful! Please log in.' });
         } else {
-            console.error(`[Register Route DEBUG] setUserData reported failure for ${username}`);
-            throw new Error("Failed to save or verify user data."); // Trigger catch block
+             // createUser handles duplicate check, so this implies another DB error
+             console.error(`Registration failed for ${username}, potentially DB error.`);
+             res.status(500).json({ status: 'error', message: 'Registration failed (server error).' });
         }
     } catch (err) {
-        console.error("[Register Route DEBUG] Error during password hashing or saving/verification:", err);
+        console.error("Error during registration hashing/saving:", err);
         res.status(500).json({ status: 'error', message: 'Server error during registration' });
     }
 });
 
 
-// --- Game Logic Functions ---
+// --- Game Logic Functions (Same as before) ---
 function generateCrashPoint() { const r = Math.random(); let crash; if (r < 0.02) { crash = 1.00; } else if (r < 0.50) { crash = 1.01 + Math.random() * 0.98; } else if (r < 0.80) { crash = 2 + Math.random() * 3; } else if (r < 0.95) { crash = 5 + Math.random() * 10; } else { crash = 15 + Math.random() * 15; } return Math.max(1.00, parseFloat(crash.toFixed(2))); }
 function calculateMultiplier(timeMillis) { const base = 1.00; const growthRate = 0.08; const exponent = 1.3; const multiplier = base + growthRate * Math.pow(timeMillis / 1000, exponent); return Math.max(1.00, parseFloat(multiplier.toFixed(2))); }
 function gameTick() { if (gameState !== 'RUNNING') { clearInterval(tickIntervalId); return; } const elapsed = Date.now() - gameStartTime; currentMultiplier = calculateMultiplier(elapsed); if (currentMultiplier >= crashPoint) { clearInterval(tickIntervalId); currentMultiplier = crashPoint; gameState = 'ENDED'; console.log(`SERVER: Crashed at ${currentMultiplier}x`); io.emit('gameCrash', { multiplier: currentMultiplier }); gameHistory.unshift(currentMultiplier); gameHistory = gameHistory.slice(0, MAX_HISTORY_ITEMS_SERVER); io.emit('historyUpdate', gameHistory); clearTimeout(nextStateTimeoutId); nextStateTimeoutId = setTimeout(setBettingState, CRASHED_DURATION); } else { io.emit('multiplierUpdate', { multiplier: currentMultiplier }); } }
@@ -226,7 +228,7 @@ function setRunningState() { clearTimeout(nextStateTimeoutId); console.log("SERV
 function broadcastPlayerCount() { const count = Object.keys(onlineUsers).length; console.log(`Broadcasting player count: ${count}`); io.emit('playerCountUpdate', { count: count }); }
 
 
-// --- Socket.IO Connection Handling (Uses Replit DB for Balance) ---
+// --- Socket.IO Connection Handling (Uses PostgreSQL for Balance) ---
 io.on('connection', (socket) => {
     console.log('Client connected:', socket.id);
     socket.emit('gameState', { state: gameState, multiplier: currentMultiplier, duration: gameState === 'BETTING' ? BETTING_DURATION : (gameState === 'PREPARING' ? PREPARING_DURATION : 0) });
@@ -235,14 +237,14 @@ io.on('connection', (socket) => {
 
     socket.on('authenticate', async (data) => {
         const username = data?.username;
-        const userData = await getUserData(username); // Uses refined function
+        const userData = await getUserData(username); // Check PostgreSQL
         if (!username || !userData) {
             console.log(`Authentication failed for socket ${socket.id} - user ${username} not found.`);
             socket.disconnect(true); return;
         }
         console.log(`Socket ${socket.id} authenticated as user ${username}`);
         onlineUsers[socket.id] = username;
-        socket.emit('balanceUpdate', { newBalance: userData.balance }); // Send DB balance
+        socket.emit('balanceUpdate', { newBalance: userData.balance }); // Send balance from DB
         broadcastPlayerCount();
     });
 
@@ -270,8 +272,7 @@ io.on('connection', (socket) => {
 
     socket.on('cashOut', async () => {
         const username = onlineUsers[socket.id];
-        if (!username) return;
-        if (gameState !== 'RUNNING') return;
+        if (!username) return; if (gameState !== 'RUNNING') return;
         const player = players[socket.id];
         if (!player || player.cashedOutAt !== null) return;
 
@@ -295,38 +296,88 @@ io.on('connection', (socket) => {
         }
     });
 
-    // Listener for Manual Deposit Requests
+    // Listener for Manual Deposit Requests (Logs to console, saves request to Replit DB for review)
     socket.on('submitDepositRequest', async (data) => {
         const username = onlineUsers[socket.id];
-        if (!username) return socket.emit('depositResult', { success: false, message: "Authentication error." });
+        if (!username) { return socket.emit('depositResult', { success: false, message: "Authentication error." }); }
         const transactionId = data?.transactionId?.trim();
         if (!transactionId || transactionId.length < 10 || transactionId.length > 20) { return socket.emit('depositResult', { success: false, message: "Invalid Transaction ID format." }); }
-
-        console.log(`Received deposit request from ${username} (Socket: ${socket.id}) - Txn ID: ${transactionId}`);
         const requestKey = `deposit_${Date.now()}_${username}`;
         const requestData = { username: username, transactionId: transactionId, status: 'pending', requestedAt: new Date().toISOString() };
+        console.log(`\n--- DEPOSIT REQUEST RECEIVED ---\nUsername: ${username}\nTransaction ID: ${transactionId}\nRequest Key: ${requestKey}\nTime: ${requestData.requestedAt}\n----------------------------`);
         try {
-            await db.set(requestKey, requestData); // Save request to Replit DB
-            console.log(`Stored deposit request under key: ${requestKey}`);
+            // Using Replit DB just to log the request easily - NOT for balance
+            const requestDb = new Database(process.env.REPLIT_DB_URL); // Separate client instance maybe? Or use main 'db'
+            await requestDb.set(requestKey, requestData);
+            console.log(`Stored deposit request under key: ${requestKey} in Replit DB`);
             socket.emit('depositResult', { success: null, pending: true, message: "Deposit submitted for manual review. Balance will be updated after verification." });
-        } catch (err) {
-            console.error(`Error saving deposit request for ${username} (Txn: ${transactionId}):`, err);
-            socket.emit('depositResult', { success: false, message: "Error submitting request. Please try again." });
-        }
+        } catch (err) { console.error(`Error saving deposit request for ${username} (Txn: ${transactionId}):`, err); socket.emit('depositResult', { success: false, message: "Error submitting request. Please try again." }); }
     });
+
+    // Listener for Admin Deposit Approval (Updates PostgreSQL DB)
+    socket.on('adminApproveDeposit', async (data) => {
+        const adminUsername = onlineUsers[socket.id];
+        const { requestKey, verifiedAmount } = data;
+        const ADMIN_USERNAME = 'YOUR_ADMIN_USERNAME'; // <<< CHANGE THIS
+        if (adminUsername !== ADMIN_USERNAME) { console.warn(`Unauthorized admin command attempt by: ${adminUsername || socket.id}`); return socket.emit('adminResult', { success: false, message: 'Not authorized.' }); }
+        if (!requestKey || typeof verifiedAmount !== 'number' || verifiedAmount <= 0) { return socket.emit('adminResult', { success: false, message: 'Invalid request key or amount.' }); }
+        console.log(`ADMIN COMMAND: ${adminUsername} attempting to approve ${requestKey} for amount ${verifiedAmount}`);
+        try {
+            // Still using Replit DB to fetch/update the *request status* record
+             const requestDb = new Database(process.env.REPLIT_DB_URL);
+            const requestData = await requestDb.get(requestKey);
+            if (!requestData || requestData.status !== 'pending') { console.log(`ADMIN WARN: Deposit request ${requestKey} not found or not pending.`); return socket.emit('adminResult', { success: false, message: `Request ${requestKey} not found or not pending.` }); }
+            const targetUsername = requestData.username;
+
+            // Update balance in PostgreSQL
+            const userData = await getUserData(targetUsername); // Get user from PG
+            if (!userData) { console.error(`ADMIN ERROR: Target user ${targetUsername} not found!`); return socket.emit('adminResult', { success: false, message: `Target user ${targetUsername} not found.` }); }
+            const currentBalance = userData.balance;
+            const newBalance = currentBalance + verifiedAmount;
+            const updateSuccess = await updateUserBalance(targetUsername, newBalance); // Update PG balance
+
+            if (updateSuccess) {
+                console.log(`ADMIN SUCCESS: PG Balance for ${targetUsername} updated to ${newBalance}.`);
+                requestData.status = 'completed'; requestData.approvedBy = adminUsername; requestData.approvedAmount = verifiedAmount; requestData.approvedAt = new Date().toISOString();
+                await requestDb.set(requestKey, requestData); // Update request status in Replit DB
+                const targetSocketId = Object.keys(onlineUsers).find(id => onlineUsers[id] === targetUsername);
+                if (targetSocketId) { io.to(targetSocketId).emit('balanceUpdate', { newBalance: newBalance }); io.to(targetSocketId).emit('depositResult', { success: true, message: `Your deposit was approved for ${verifiedAmount}. New balance: ${Math.floor(newBalance)}` }); console.log(`Sent updates to online user ${targetUsername}`); }
+                else { console.log(`User ${targetUsername} is offline, balance updated in DB.`); }
+                socket.emit('adminResult', { success: true, message: `Successfully updated balance for ${targetUsername} to ${newBalance}. Request marked completed.` });
+            } else { console.error(`ADMIN ERROR: Failed to update PG balance for ${targetUsername}.`); socket.emit('adminResult', { success: false, message: `Failed to update balance in DB for ${targetUsername}.` }); }
+        } catch (err) { console.error(`ADMIN ERROR processing approval for ${requestKey}:`, err); socket.emit('adminResult', { success: false, message: 'Server error during approval process.' }); }
+    });
+
 
     socket.on('disconnect', () => {
         const username = onlineUsers[socket.id];
         console.log(`Client disconnected: ${socket.id}` + (username ? ` (${username})` : ''));
-        delete players[socket.id]; delete onlineUsers[socket.id];
+        delete players[socket.id];
+        delete onlineUsers[socket.id];
         broadcastPlayerCount();
     });
 });
 
 // --- Start the Server ---
-server.listen(port, () => {
-    console.log(`Crash Game Server (Replit DB) listening on port ${port}`);
-    // Start the game cycle
-    setBettingState();
-});
-const Database = require("@replit/database")
+async function startServer() {
+    console.log("Attempting to connect to PostgreSQL and setup DB table...");
+    // Test DB connection and setup table before starting server fully
+    try {
+        const client = await pool.connect(); // Try connecting
+        console.log("PostgreSQL DB connected temporarily for setup check.");
+        await setupDatabase(); // Make sure table exists
+        client.release(); // Release the client
+        // If we reached here, DB connection and table setup worked
+        server.listen(port, () => { // Now start listening for web requests
+            console.log(`Crash Game Server with PostgreSQL listening on port ${port}`);
+            setBettingState(); // Start the game cycle
+        });
+    } catch (dbError) {
+         console.error("!!! FAILED TO CONNECT TO POSTGRESQL DATABASE OR SETUP TABLE !!!");
+         console.error("Ensure DATABASE_URL environment variable/secret is correct and the Render DB is available.");
+         console.error(dbError);
+         // Don't start the game loop if DB isn't ready
+    }
+}
+
+startServer(); // Call the async function to start the server process
