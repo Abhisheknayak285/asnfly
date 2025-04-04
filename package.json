@@ -10,6 +10,10 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "@types/node": "^22.13.11"
+    "@replit/database": "^3.0.1",
+    "@types/node": "^22.13.11",
+    "bcrypt": "^5.1.1",
+    "express": "^5.1.0",
+    "socket.io": "^4.8.1"
   }
 }
