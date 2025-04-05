@@ -1,9 +1,9 @@
-// public/script.js - Client for Synchronized Game with Manual Deposit Submission
+// public/script.js - Client for Synchronized Game (with Global Socket for Admin Console) - FULL CODE
 
 document.addEventListener('DOMContentLoaded', () => {
-    console.log("Full client script loaded (Manual Deposit Version).");
+    console.log("Full Multiplayer crash game client script loaded.");
     // --- Current Time Context ---
-    console.log("Current time:", new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" }), "(IST)");
+    // console.log("Current time:", new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" }), "(IST)");
 
 
     // --- Get DOM Elements ---
@@ -16,7 +16,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const registerUsernameInput = document.getElementById('registerUsername');
     const registerPasswordInput = document.getElementById('registerPassword');
     const registerConfirmPasswordInput = document.getElementById('registerConfirmPassword');
-    const loginError = document.getElementById('loginError');
+    const loginError = document.getElementById('loginError'); // Used for login errors AND reg success msg
     const registerError = document.getElementById('registerError');
     const loginButton = document.getElementById('loginButton');
     const registerButton = document.getElementById('registerButton');
@@ -29,7 +29,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const balanceDisplay = document.getElementById('balance');
     const playerCountDisplay = document.getElementById('playerCount');
     const mainHistoryDisplay = document.getElementById('mainHistoryDisplay');
-    const gameNotification = document.getElementById('gameNotification');
+    const gameNotification = document.getElementById('gameNotification'); // The new notification area
     const cloudsBackground = document.querySelector('.clouds-background');
     // Controls
     const betAmountInput = document.getElementById('betAmount');
@@ -73,7 +73,8 @@ document.addEventListener('DOMContentLoaded', () => {
     let currentBetThisRound = null;
     let hasCashedOutThisRound = false;
     let currentServerState = 'IDLE';
-    let socket = null;
+    // *** Make socket globally accessible for console commands ***
+    window.socket = null; // Holds the Socket.IO connection object (Attached to window)
     let soundEnabled = true;
     let loggedInUsername = null;
     let notificationTimeout = null;
@@ -88,130 +89,63 @@ document.addEventListener('DOMContentLoaded', () => {
     function updateHistoryDisplay(historyArray) { if (!mainHistoryDisplay) return; mainHistoryDisplay.innerHTML = ''; if (!historyArray || historyArray.length === 0) { mainHistoryDisplay.innerHTML = '<span class="history-empty-message">No history yet.</span>'; return; } const itemsToDisplay = historyArray.slice(0, 12); itemsToDisplay.forEach(multiplier => { const item = document.createElement('div'); item.classList.add('history-item'); if (multiplier < 1.5) item.classList.add('low'); else if (multiplier < 5) item.classList.add('medium'); else item.classList.add('high'); item.innerHTML = `<span class="history-item-multiplier">${multiplier.toFixed(2)}x</span>`; mainHistoryDisplay.appendChild(item); }); }
     function updateSoundIcon() { if (!menuSoundIcon) return; if (soundEnabled) { menuSoundIcon.textContent = '🔊'; menuSoundIcon.classList.remove('muted'); } else { menuSoundIcon.textContent = '🔇'; menuSoundIcon.classList.add('muted'); } }
     function toggleSound() { soundEnabled = !soundEnabled; updateSoundIcon(); console.log('Sound Enabled:', soundEnabled); /* Add sound logic */ }
+    // Error/Success display helpers
     function displayLoginError(message) { if(loginError) { loginError.textContent = message; loginError.classList.remove('success-message'); loginError.classList.add('show'); } }
-    function clearLoginError() { if(loginError) { loginError.textContent = ''; loginError.classList.remove('show', 'success-message'); } }
+    function clearLoginError() { if(loginError) { loginError.textContent = ''; loginError.classList.remove('show', 'success-message'); } } // Removes both classes now
     function displayRegisterError(message) { if(registerError) { registerError.textContent = message; registerError.classList.remove('success-message'); registerError.classList.add('show'); } }
     function clearRegisterError() { if(registerError) { registerError.textContent = ''; registerError.classList.remove('show', 'success-message'); } }
+    // In-game notification helper
     function showGameNotification(message, type = 'error', duration = 3000) { if (!gameNotification) return; if (notificationTimeout) { clearTimeout(notificationTimeout); } gameNotification.textContent = message; gameNotification.className = 'game-notification'; if (type) { gameNotification.classList.add(type); } gameNotification.classList.add('show'); notificationTimeout = setTimeout(() => { gameNotification.classList.remove('show'); }, duration); }
 
 
     // --- Show/Hide Auth vs Game ---
     function showGameScreen() { if (!authContainer || !gameWrapper) return; console.log("Showing game screen..."); authContainer.classList.add('hidden'); gameWrapper.classList.remove('hidden'); if(gameStatusDisplay) gameStatusDisplay.textContent = "Connecting..."; if(multiplierDisplay) multiplierDisplay.textContent = "---"; if(balanceDisplay) balanceDisplay.textContent = "..."; if(playerCountDisplay) playerCountDisplay.textContent = "-"; if(mainHistoryDisplay) mainHistoryDisplay.innerHTML = ''; closeAllPopups(); }
-    function showAuthScreen() { if (!authContainer || !gameWrapper) return; console.log("Showing auth screen..."); if(socket) { socket.disconnect(); socket = null; } loggedInUsername = null; authContainer.classList.remove('hidden'); gameWrapper.classList.add('hidden'); clearLoginError(); clearRegisterError(); if(loginForm) loginForm.reset(); if(registerForm) registerForm.reset(); closeAllPopups(); }
+    function showAuthScreen() { if (!authContainer || !gameWrapper) return; console.log("Showing auth screen..."); if(window.socket) { window.socket.disconnect(); window.socket = null; } loggedInUsername = null; authContainer.classList.remove('hidden'); gameWrapper.classList.add('hidden'); clearLoginError(); clearRegisterError(); if(loginForm) loginForm.reset(); if(registerForm) registerForm.reset(); closeAllPopups(); }
 
     // --- WebSocket Connection ---
     function connectWebSocket() {
-        if (socket) { console.log("WebSocket already connected or connecting."); return; }
+        // Access global socket variable
+        if (window.socket) { console.log("WebSocket already connected or connecting."); return; }
         if (!loggedInUsername) { console.error("Cannot connect WebSocket without loggedInUsername."); return; }
         console.log("Initializing WebSocket connection...");
-        socket = io();
+        window.socket = io(); // Assign to global variable
 
-        socket.on('connect', () => {
-            console.log('Connected to server!', socket.id);
+        window.socket.on('connect', () => {
+            console.log('Connected to server!', window.socket.id);
             if (gameStatusDisplay) gameStatusDisplay.textContent = "Authenticating...";
             console.log(`Sending authenticate event for user: ${loggedInUsername}`);
-            socket.emit('authenticate', { username: loggedInUsername });
+            window.socket.emit('authenticate', { username: loggedInUsername });
         });
 
         // --- Socket Event Listeners ---
-        socket.on('disconnect', () => { console.log('Disconnected from server.'); if (gameStatusDisplay) gameStatusDisplay.textContent = "Disconnected! Refresh page."; if (multiplierDisplay) multiplierDisplay.textContent = '---'; if (mainActionButton) { mainActionButton.textContent = 'Offline'; mainActionButton.disabled = true; } setBetControlsDisabled(true); if (rocket) rocket.className = 'rocket-placeholder'; if (cloudsBackground) cloudsBackground.classList.remove('clouds-active'); currentBetThisRound = null; hasCashedOutThisRound = false; currentServerState = 'IDLE'; socket = null; });
-        socket.on('gameState', (data) => { console.log('Server gameState:', data.state); if (!multiplierDisplay || !gameStatusDisplay || !mainActionButton) return; currentServerState = data.state; switch (data.state) { case 'BETTING': resetUIForNewRound(); gameStatusDisplay.textContent = `Place your bet! (${(data.duration / 1000).toFixed(0)}s left)`; break; case 'PREPARING': gameStatusDisplay.textContent = `Get Ready! Launching soon...`; mainActionButton.textContent = currentBetThisRound ? 'Bet Placed' : 'Waiting for Launch'; mainActionButton.className = 'state-waiting_start'; mainActionButton.disabled = true; setBetControlsDisabled(true); if(rocket) rocket.className = 'rocket-placeholder'; if(cloudsBackground) cloudsBackground.classList.remove('clouds-active'); if(potentialWinDisplay) potentialWinDisplay.classList.add('hidden'); if(currentBetThisRound && betAmountInput) betAmountInput.classList.add('hidden'); break; case 'RUNNING': gameStatusDisplay.textContent = "🚀 Rocket Launched!"; multiplierDisplay.textContent = `${data.multiplier.toFixed(2)}x`; multiplierDisplay.className = 'multiplier-zone running'; if (currentBetThisRound && !hasCashedOutThisRound) { mainActionButton.textContent = `Cash Out @ ${data.multiplier.toFixed(2)}x`; mainActionButton.className = 'state-running'; mainActionButton.disabled = false; const potentialWin = currentBetThisRound.amount * data.multiplier; if(potentialWinDisplay) { potentialWinDisplay.textContent = potentialWin.toFixed(2); potentialWinDisplay.classList.remove('hidden'); } if(betAmountInput) betAmountInput.classList.add('hidden'); } else { mainActionButton.textContent = 'In Progress'; mainActionButton.className = 'state-waiting_start'; mainActionButton.disabled = true; if(potentialWinDisplay) potentialWinDisplay.classList.add('hidden'); if(betAmountInput) betAmountInput.classList.remove('hidden'); } setBetControlsDisabled(true); updateRocketPosition(data.multiplier); break; } });
-        socket.on('multiplierUpdate', (data) => { if (currentServerState !== 'RUNNING' || !multiplierDisplay) return; multiplierDisplay.textContent = `${data.multiplier.toFixed(2)}x`; if (currentBetThisRound && !hasCashedOutThisRound) { mainActionButton.textContent = `Cash Out @ ${data.multiplier.toFixed(2)}x`; const potentialWin = currentBetThisRound.amount * data.multiplier; if(potentialWinDisplay) potentialWinDisplay.textContent = potentialWin.toFixed(2); } updateRocketPosition(data.multiplier); });
-        socket.on('gameCrash', (data) => { if (!multiplierDisplay || !gameStatusDisplay || !mainActionButton) return; console.log('Server gameCrash:', data.multiplier); currentServerState = 'ENDED'; multiplierDisplay.textContent = `${data.multiplier.toFixed(2)}x`; multiplierDisplay.className = 'multiplier-zone crashed'; if(rocket) rocket.className = 'rocket-placeholder crashed'; if(cloudsBackground) cloudsBackground.classList.remove('clouds-active'); setBetControlsDisabled(true); if (currentBetThisRound) { if (hasCashedOutThisRound) { gameStatusDisplay.textContent = `Round Finished. Crashed @ ${data.multiplier.toFixed(2)}x`; } else { mainActionButton.textContent = 'Crashed'; mainActionButton.className = 'state-crashed'; mainActionButton.disabled = true; gameStatusDisplay.textContent = `Crashed @ ${data.multiplier.toFixed(2)}x! You lost.`; } } else { mainActionButton.textContent = 'Round Over'; mainActionButton.className = 'state-crashed'; mainActionButton.disabled = true; gameStatusDisplay.textContent = `Crashed @ ${data.multiplier.toFixed(2)}x`; } if(potentialWinDisplay) potentialWinDisplay.classList.add('hidden'); if(betAmountInput) betAmountInput.classList.remove('hidden'); });
-        socket.on('betSuccess', (data) => { console.log('Server confirmed bet:', data.amount); currentBetThisRound = { amount: data.amount }; hasCashedOutThisRound = false; if(mainActionButton) { mainActionButton.textContent = 'Bet Placed'; mainActionButton.className = 'state-waiting_start'; mainActionButton.disabled = true; } setBetControlsDisabled(true); if(betAmountInput) betAmountInput.classList.add('hidden'); if(potentialWinDisplay) { potentialWinDisplay.classList.remove('hidden'); potentialWinDisplay.textContent = (data.amount * 1.00).toFixed(2); } });
-        socket.on('cashOutSuccess', (data) => { console.log('Server confirmed cashOut at:', data.multiplier); if (!currentBetThisRound || hasCashedOutThisRound) return; hasCashedOutThisRound = true; if(mainActionButton) { mainActionButton.textContent = `Cashed Out @ ${data.multiplier.toFixed(2)}x`; mainActionButton.className = 'state-cashed_out'; mainActionButton.disabled = true; } setBetControlsDisabled(true); if(gameStatusDisplay) gameStatusDisplay.textContent = `Successfully Cashed Out @ ${data.multiplier.toFixed(2)}x!`; if(betAmountInput) betAmountInput.classList.remove('hidden'); if(potentialWinDisplay) potentialWinDisplay.classList.add('hidden'); });
-        socket.on('betError', (data) => { console.error('Bet Error from server:', data.message); showGameNotification(`Bet Error: ${data.message}`, 'error'); if (currentServerState === 'BETTING') { if(mainActionButton) { mainActionButton.textContent = 'Place Bet'; mainActionButton.className = 'state-idle'; mainActionButton.disabled = false; } setBetControlsDisabled(false); currentBetThisRound = null; } });
-        socket.on('historyUpdate', (historyFromServer) => { console.log('Received history update:', historyFromServer); updateHistoryDisplay(historyFromServer); });
-        socket.on('playerCountUpdate', (data) => { console.log('Received player count update:', data.count); if (playerCountDisplay) { playerCountDisplay.textContent = data.count; } });
-        socket.on('balanceUpdate', (data) => { console.log('Received balance update:', data.newBalance); if (balanceDisplay) { balanceDisplay.textContent = Math.floor(data.newBalance); } });
-
-        // *** Listener for Manual Deposit Result ***
-        socket.on('depositResult', (data) => {
-            console.log("Received depositResult:", data);
-            if (!depositStatus || !submitDepositButton || !transactionIdInput) return;
-
-            depositStatus.textContent = data.message; // Display message from server
-
-            if (data.success === true) { // Should not happen in manual flow, but handle
-                depositStatus.className = 'wallet-status success';
-                transactionIdInput.value = ''; transactionIdInput.disabled = false;
-                submitDepositButton.disabled = true;
-                if (paymentMethodSelect) paymentMethodSelect.value = ''; // Reset dropdown
-                if (upiDetailsDiv) upiDetailsDiv.classList.add('hidden');
-                if (qrCodeDetailsDiv) qrCodeDetailsDiv.classList.add('hidden');
-                if (transactionIdSection) transactionIdSection.classList.add('hidden');
-            } else if (data.success === false) { // Handle errors (e.g., invalid Txn ID format)
-                depositStatus.className = 'wallet-status error';
-                submitDepositButton.disabled = false; // Re-enable button on error
-                transactionIdInput.disabled = false; // Re-enable input
-            } else if (data.pending === true) { // Handle pending state (Manual Review)
-                depositStatus.className = 'wallet-status pending'; // Keep it yellow/pending
-                transactionIdInput.value = ''; // Clear input after submission
-                transactionIdInput.disabled = false; // Re-enable input for next time? Or keep disabled? Let's re-enable.
-                submitDepositButton.disabled = true; // Keep button disabled until next TxnID entered
-                 if (paymentMethodSelect) paymentMethodSelect.value = ''; // Optionally reset dropdown
-                 if (upiDetailsDiv) upiDetailsDiv.classList.add('hidden');
-                 if (qrCodeDetailsDiv) qrCodeDetailsDiv.classList.add('hidden');
-                 if (transactionIdSection) transactionIdSection.classList.add('hidden'); // Hide details after submit
-            }
-        });
-        // *** Add listener for Withdrawal Result (if implementing manual withdrawal later) ***
-        // socket.on('withdrawalResult', (data) => { ... });
-
+        window.socket.on('disconnect', () => { console.log('Disconnected from server.'); if (gameStatusDisplay) gameStatusDisplay.textContent = "Disconnected! Refresh page."; if (multiplierDisplay) multiplierDisplay.textContent = '---'; if (mainActionButton) { mainActionButton.textContent = 'Offline'; mainActionButton.disabled = true; } setBetControlsDisabled(true); if (rocket) rocket.className = 'rocket-placeholder'; if (cloudsBackground) cloudsBackground.classList.remove('clouds-active'); currentBetThisRound = null; hasCashedOutThisRound = false; currentServerState = 'IDLE'; window.socket = null; });
+        window.socket.on('gameState', (data) => { console.log('Server gameState:', data.state); if (!multiplierDisplay || !gameStatusDisplay || !mainActionButton) return; currentServerState = data.state; switch (data.state) { case 'BETTING': resetUIForNewRound(); gameStatusDisplay.textContent = `Place your bet! (${(data.duration / 1000).toFixed(0)}s left)`; break; case 'PREPARING': gameStatusDisplay.textContent = `Get Ready! Launching soon...`; mainActionButton.textContent = currentBetThisRound ? 'Bet Placed' : 'Waiting for Launch'; mainActionButton.className = 'state-waiting_start'; mainActionButton.disabled = true; setBetControlsDisabled(true); if(rocket) rocket.className = 'rocket-placeholder'; if(cloudsBackground) cloudsBackground.classList.remove('clouds-active'); if(potentialWinDisplay) potentialWinDisplay.classList.add('hidden'); if(currentBetThisRound && betAmountInput) betAmountInput.classList.add('hidden'); break; case 'RUNNING': gameStatusDisplay.textContent = "🚀 Rocket Launched!"; multiplierDisplay.textContent = `${data.multiplier.toFixed(2)}x`; multiplierDisplay.className = 'multiplier-zone running'; if (currentBetThisRound && !hasCashedOutThisRound) { mainActionButton.textContent = `Cash Out @ ${data.multiplier.toFixed(2)}x`; mainActionButton.className = 'state-running'; mainActionButton.disabled = false; const potentialWin = currentBetThisRound.amount * data.multiplier; if(potentialWinDisplay) { potentialWinDisplay.textContent = potentialWin.toFixed(2); potentialWinDisplay.classList.remove('hidden'); } if(betAmountInput) betAmountInput.classList.add('hidden'); } else { mainActionButton.textContent = 'In Progress'; mainActionButton.className = 'state-waiting_start'; mainActionButton.disabled = true; if(potentialWinDisplay) potentialWinDisplay.classList.add('hidden'); if(betAmountInput) betAmountInput.classList.remove('hidden'); } setBetControlsDisabled(true); updateRocketPosition(data.multiplier); break; } });
+        window.socket.on('multiplierUpdate', (data) => { if (currentServerState !== 'RUNNING' || !multiplierDisplay) return; multiplierDisplay.textContent = `${data.multiplier.toFixed(2)}x`; if (currentBetThisRound && !hasCashedOutThisRound) { mainActionButton.textContent = `Cash Out @ ${data.multiplier.toFixed(2)}x`; const potentialWin = currentBetThisRound.amount * data.multiplier; if(potentialWinDisplay) potentialWinDisplay.textContent = potentialWin.toFixed(2); } updateRocketPosition(data.multiplier); });
+        window.socket.on('gameCrash', (data) => { if (!multiplierDisplay || !gameStatusDisplay || !mainActionButton) return; console.log('Server gameCrash:', data.multiplier); currentServerState = 'ENDED'; multiplierDisplay.textContent = `${data.multiplier.toFixed(2)}x`; multiplierDisplay.className = 'multiplier-zone crashed'; if(rocket) rocket.className = 'rocket-placeholder crashed'; if(cloudsBackground) cloudsBackground.classList.remove('clouds-active'); setBetControlsDisabled(true); if (currentBetThisRound) { if (hasCashedOutThisRound) { gameStatusDisplay.textContent = `Round Finished. Crashed @ ${data.multiplier.toFixed(2)}x`; } else { mainActionButton.textContent = 'Crashed'; mainActionButton.className = 'state-crashed'; mainActionButton.disabled = true; gameStatusDisplay.textContent = `Crashed @ ${data.multiplier.toFixed(2)}x! You lost.`; } } else { mainActionButton.textContent = 'Round Over'; mainActionButton.className = 'state-crashed'; mainActionButton.disabled = true; gameStatusDisplay.textContent = `Crashed @ ${data.multiplier.toFixed(2)}x`; } if(potentialWinDisplay) potentialWinDisplay.classList.add('hidden'); if(betAmountInput) betAmountInput.classList.remove('hidden'); });
+        window.socket.on('betSuccess', (data) => { console.log('Server confirmed bet:', data.amount); currentBetThisRound = { amount: data.amount }; hasCashedOutThisRound = false; if(mainActionButton) { mainActionButton.textContent = 'Bet Placed'; mainActionButton.className = 'state-waiting_start'; mainActionButton.disabled = true; } setBetControlsDisabled(true); if(betAmountInput) betAmountInput.classList.add('hidden'); if(potentialWinDisplay) { potentialWinDisplay.classList.remove('hidden'); potentialWinDisplay.textContent = (data.amount * 1.00).toFixed(2); } });
+        window.socket.on('cashOutSuccess', (data) => { console.log('Server confirmed cashOut at:', data.multiplier); if (!currentBetThisRound || hasCashedOutThisRound) return; hasCashedOutThisRound = true; if(mainActionButton) { mainActionButton.textContent = `Cashed Out @ ${data.multiplier.toFixed(2)}x`; mainActionButton.className = 'state-cashed_out'; mainActionButton.disabled = true; } setBetControlsDisabled(true); if(gameStatusDisplay) gameStatusDisplay.textContent = `Successfully Cashed Out @ ${data.multiplier.toFixed(2)}x!`; if(betAmountInput) betAmountInput.classList.remove('hidden'); if(potentialWinDisplay) potentialWinDisplay.classList.add('hidden'); });
+        window.socket.on('betError', (data) => { console.error('Bet Error from server:', data.message); showGameNotification(`Bet Error: ${data.message}`, 'error'); if (currentServerState === 'BETTING') { if(mainActionButton) { mainActionButton.textContent = 'Place Bet'; mainActionButton.className = 'state-idle'; mainActionButton.disabled = false; } setBetControlsDisabled(false); currentBetThisRound = null; } });
+        window.socket.on('historyUpdate', (historyFromServer) => { console.log('Received history update:', historyFromServer); updateHistoryDisplay(historyFromServer); });
+        window.socket.on('playerCountUpdate', (data) => { console.log('Received player count update:', data.count); if (playerCountDisplay) { playerCountDisplay.textContent = data.count; } });
+        window.socket.on('balanceUpdate', (data) => { console.log('Received balance update:', data.newBalance); if (balanceDisplay) { balanceDisplay.textContent = Math.floor(data.newBalance); } });
+        // Listener for Manual Deposit Result
+        window.socket.on('depositResult', (data) => { console.log("Received depositResult:", data); if (!depositStatus || !submitDepositButton || !transactionIdInput) return; depositStatus.textContent = data.message; if (data.success === true) { depositStatus.className = 'wallet-status success'; transactionIdInput.value = ''; transactionIdInput.disabled = false; submitDepositButton.disabled = true; if (paymentMethodSelect) paymentMethodSelect.value = ''; if (upiDetailsDiv) upiDetailsDiv.classList.add('hidden'); if (qrCodeDetailsDiv) qrCodeDetailsDiv.classList.add('hidden'); if (transactionIdSection) transactionIdSection.classList.add('hidden'); } else if (data.success === false) { depositStatus.className = 'wallet-status error'; submitDepositButton.disabled = false; transactionIdInput.disabled = false; } else if (data.pending === true) { depositStatus.className = 'wallet-status pending'; transactionIdInput.value = ''; transactionIdInput.disabled = false; submitDepositButton.disabled = true; if (paymentMethodSelect) paymentMethodSelect.value = ''; if (upiDetailsDiv) upiDetailsDiv.classList.add('hidden'); if (qrCodeDetailsDiv) qrCodeDetailsDiv.classList.add('hidden'); if (transactionIdSection) transactionIdSection.classList.add('hidden'); } });
+        // Listener for Admin command result
+        window.socket.on('adminResult', (data) => { console.log("Admin Command Result:", data); showGameNotification(data.message, data.success ? 'success' : 'error', 5000); });
 
     } // End of connectWebSocket
 
     // --- Functions to Send Actions to Server ---
-    function placeBetAction() { if (currentServerState !== 'BETTING' || !betAmountInput) return; const amount = parseInt(betAmountInput.value); if (isNaN(amount) || amount <= 0) { showGameNotification("Please enter a valid bet amount > 0.", 'error'); return; } if (!socket || !socket.connected) { showGameNotification("Not connected to game server.", 'error'); return; } console.log(`Client sending 'placeBet' event with amount: ${amount}`); socket.emit('placeBet', { amount: amount }); if(mainActionButton) { mainActionButton.textContent = 'Placing Bet...'; mainActionButton.disabled = true; } }
-    function cashOutAction() { if (currentServerState !== 'RUNNING' || !currentBetThisRound || hasCashedOutThisRound) return; if (!socket || !socket.connected) { showGameNotification("Not connected to game server.", 'error'); return; } console.log("Client sending 'cashOut' event"); socket.emit('cashOut'); if(mainActionButton) { mainActionButton.textContent = 'Cashing out...'; mainActionButton.disabled = true; } }
+    function placeBetAction() { if (currentServerState !== 'BETTING' || !betAmountInput) return; const amount = parseInt(betAmountInput.value); if (isNaN(amount) || amount <= 0) { showGameNotification("Please enter a valid bet amount > 0.", 'error'); return; } if (!window.socket || !window.socket.connected) { showGameNotification("Not connected to game server.", 'error'); return; } console.log(`Client sending 'placeBet' event with amount: ${amount}`); window.socket.emit('placeBet', { amount: amount }); if(mainActionButton) { mainActionButton.textContent = 'Placing Bet...'; mainActionButton.disabled = true; } }
+    function cashOutAction() { if (currentServerState !== 'RUNNING' || !currentBetThisRound || hasCashedOutThisRound) return; if (!window.socket || !window.socket.connected) { showGameNotification("Not connected to game server.", 'error'); return; } console.log("Client sending 'cashOut' event"); window.socket.emit('cashOut'); if(mainActionButton) { mainActionButton.textContent = 'Cashing out...'; mainActionButton.disabled = true; } }
 
     // --- Wallet UI Functions ---
     function resetWalletForms() { if (paymentMethodSelect) paymentMethodSelect.value = ''; if (upiDetailsDiv) upiDetailsDiv.classList.add('hidden'); if (qrCodeDetailsDiv) qrCodeDetailsDiv.classList.add('hidden'); if (transactionIdSection) transactionIdSection.classList.add('hidden'); if (transactionIdInput) transactionIdInput.value = ''; if (submitDepositButton) submitDepositButton.disabled = true; if (depositStatus) { depositStatus.textContent = ''; depositStatus.className = 'wallet-status'; } if (withdrawAmountInput) withdrawAmountInput.value = ''; if (userUpiIdInput) userUpiIdInput.value = ''; if (withdrawalStatus) { withdrawalStatus.textContent = ''; withdrawalStatus.className = 'wallet-status'; } if (submitWithdrawalButton) submitWithdrawalButton.disabled = false; if (transactionIdInput && submitDepositButton) submitDepositButton.disabled = (transactionIdInput.value.trim().length < 10); }
-    function setupWalletUI() {
-        if (showAddMoneyBtn) { showAddMoneyBtn.addEventListener('click', () => { if (addMoneySection) addMoneySection.classList.add('active'); if (withdrawMoneySection) withdrawMoneySection.classList.remove('active'); showAddMoneyBtn.classList.add('active'); if (showWithdrawMoneyBtn) showWithdrawMoneyBtn.classList.remove('active'); resetWalletForms(); }); }
-        if (showWithdrawMoneyBtn) { showWithdrawMoneyBtn.addEventListener('click', () => { if (addMoneySection) addMoneySection.classList.remove('active'); if (withdrawMoneySection) withdrawMoneySection.classList.add('active'); showWithdrawMoneyBtn.classList.add('active'); if (showAddMoneyBtn) showAddMoneyBtn.classList.remove('active'); resetWalletForms(); }); }
-        if (paymentMethodSelect) { paymentMethodSelect.addEventListener('change', () => { const method = paymentMethodSelect.value; if (upiDetailsDiv) upiDetailsDiv.classList.add('hidden'); if (qrCodeDetailsDiv) qrCodeDetailsDiv.classList.add('hidden'); if (transactionIdSection) transactionIdSection.classList.add('hidden'); if (submitDepositButton) submitDepositButton.disabled = true; if (depositStatus) depositStatus.textContent = ''; if (method === 'upi') { if (upiDetailsDiv) upiDetailsDiv.classList.remove('hidden'); if (transactionIdSection) transactionIdSection.classList.remove('hidden'); } else if (method === 'qr') { if (qrCodeDetailsDiv) qrCodeDetailsDiv.classList.remove('hidden'); if (transactionIdSection) transactionIdSection.classList.remove('hidden'); } if (transactionIdInput && submitDepositButton) submitDepositButton.disabled = (transactionIdInput.value.trim().length < 10); }); }
-        if (transactionIdInput && submitDepositButton) { transactionIdInput.addEventListener('input', () => { submitDepositButton.disabled = transactionIdInput.value.trim().length < 10; }); }
-
+    function setupWalletUI() { if (showAddMoneyBtn) { showAddMoneyBtn.addEventListener('click', () => { if (addMoneySection) addMoneySection.classList.add('active'); if (withdrawMoneySection) withdrawMoneySection.classList.remove('active'); showAddMoneyBtn.classList.add('active'); if (showWithdrawMoneyBtn) showWithdrawMoneyBtn.classList.remove('active'); resetWalletForms(); }); } if (showWithdrawMoneyBtn) { showWithdrawMoneyBtn.addEventListener('click', () => { if (addMoneySection) addMoneySection.classList.remove('active'); if (withdrawMoneySection) withdrawMoneySection.classList.add('active'); showWithdrawMoneyBtn.classList.add('active'); if (showAddMoneyBtn) showAddMoneyBtn.classList.remove('active'); resetWalletForms(); }); } if (paymentMethodSelect) { paymentMethodSelect.addEventListener('change', () => { const method = paymentMethodSelect.value; if (upiDetailsDiv) upiDetailsDiv.classList.add('hidden'); if (qrCodeDetailsDiv) qrCodeDetailsDiv.classList.add('hidden'); if (transactionIdSection) transactionIdSection.classList.add('hidden'); if (submitDepositButton) submitDepositButton.disabled = true; if (depositStatus) depositStatus.textContent = ''; if (method === 'upi') { if (upiDetailsDiv) upiDetailsDiv.classList.remove('hidden'); if (transactionIdSection) transactionIdSection.classList.remove('hidden'); } else if (method === 'qr') { if (qrCodeDetailsDiv) qrCodeDetailsDiv.classList.remove('hidden'); if (transactionIdSection) transactionIdSection.classList.remove('hidden'); } if (transactionIdInput && submitDepositButton) submitDepositButton.disabled = (transactionIdInput.value.trim().length < 10); }); } if (transactionIdInput && submitDepositButton) { transactionIdInput.addEventListener('input', () => { submitDepositButton.disabled = transactionIdInput.value.trim().length < 10; }); }
         // Deposit Button (Manual Submission Flow)
-        if (submitDepositButton && transactionIdInput && depositStatus) {
-            submitDepositButton.addEventListener('click', () => {
-                const txnId = transactionIdInput.value.trim();
-                if (txnId.length < 10 || txnId.length > 20) { showGameNotification("Please enter a valid Transaction ID (UTR).", 'error'); return; } // Use game notification
-                if (!socket || !socket.connected) { showGameNotification("Not connected to server.", 'error'); return; }
-
-                depositStatus.textContent = 'Submitting request...'; depositStatus.className = 'wallet-status pending';
-                submitDepositButton.disabled = true; transactionIdInput.disabled = true;
-
-                console.log(`Client sending 'submitDepositRequest' with Txn ID: ${txnId}`);
-                socket.emit('submitDepositRequest', { transactionId: txnId });
-                // Server will respond via 'depositResult' event
-            });
-        }
-
-        // Withdrawal Button (Still DEMO logic - No server interaction yet)
-        if (submitWithdrawalButton && withdrawAmountInput && userUpiIdInput && withdrawalStatus) {
-            submitWithdrawalButton.addEventListener('click', () => {
-                const amount = parseFloat(withdrawAmountInput.value); const upiId = userUpiIdInput.value.trim();
-                withdrawalStatus.textContent = ''; withdrawalStatus.className = 'wallet-status';
-                if (isNaN(amount) || amount < 100) { withdrawalStatus.textContent = 'Minimum withdrawal is ₹100. (Demo)'; withdrawalStatus.className = 'wallet-status error'; return; }
-                if (!upiId || !upiId.includes('@')) { withdrawalStatus.textContent = 'Please enter a valid UPI ID. (Demo)'; withdrawalStatus.className = 'wallet-status error'; return; }
-                // ** NO client balance check - Server must do this **
-                withdrawalStatus.textContent = 'Processing withdrawal... (Demo)'; withdrawalStatus.className = 'wallet-status pending';
-                submitWithdrawalButton.disabled = true;
-                // ** TODO: Implement server-side withdrawal request logic **
-                // e.g., socket.emit('submitWithdrawalRequest', { amount: amount, upiId: upiId });
-                // For now, just simulate locally:
-                setTimeout(() => {
-                     withdrawalStatus.textContent = 'Withdrawal request submitted. (Demo - Balance update from server needed)';
-                     withdrawalStatus.className = 'wallet-status success';
-                     withdrawAmountInput.value = ''; userUpiIdInput.value = '';
-                     submitWithdrawalButton.disabled = false;
-                }, 2000);
-            });
-        }
-    } // End of setupWalletUI
-
+        if (submitDepositButton && transactionIdInput && depositStatus) { submitDepositButton.addEventListener('click', () => { const txnId = transactionIdInput.value.trim(); if (txnId.length < 10 || txnId.length > 20) { showGameNotification("Please enter a valid Transaction ID (UTR).", 'error'); return; } if (!window.socket || !window.socket.connected) { showGameNotification("Not connected to server.", 'error'); return; } depositStatus.textContent = 'Submitting request...'; depositStatus.className = 'wallet-status pending'; submitDepositButton.disabled = true; transactionIdInput.disabled = true; console.log(`Client sending 'submitDepositRequest' with Txn ID: ${txnId}`); window.socket.emit('submitDepositRequest', { transactionId: txnId }); }); }
+        // Withdrawal Button (Still DEMO logic)
+        if (submitWithdrawalButton && withdrawAmountInput && userUpiIdInput && withdrawalStatus) { submitWithdrawalButton.addEventListener('click', () => { const amount = parseFloat(withdrawAmountInput.value); const upiId = userUpiIdInput.value.trim(); withdrawalStatus.textContent = ''; withdrawalStatus.className = 'wallet-status'; if (isNaN(amount) || amount < 100) { withdrawalStatus.textContent = 'Minimum withdrawal is ₹100. (Demo)'; withdrawalStatus.className = 'wallet-status error'; return; } if (!upiId || !upiId.includes('@')) { withdrawalStatus.textContent = 'Please enter a valid UPI ID. (Demo)'; withdrawalStatus.className = 'wallet-status error'; return; } withdrawalStatus.textContent = 'Processing withdrawal... (Demo)'; withdrawalStatus.className = 'wallet-status pending'; submitWithdrawalButton.disabled = true; setTimeout(() => { withdrawalStatus.textContent = 'Withdrawal request submitted. (Demo - Needs server implementation)'; withdrawalStatus.className = 'wallet-status success'; if (withdrawAmountInput) withdrawAmountInput.value = ''; if (userUpiIdInput) userUpiIdInput.value = ''; submitWithdrawalButton.disabled = false; }, 2000); }); } }
 
     // --- Event Listeners Setup ---
     // Login Form
@@ -233,12 +167,12 @@ document.addEventListener('DOMContentLoaded', () => {
     if (closeMenuButton) { closeMenuButton.addEventListener('click', () => closePopup(mainMenuPopup)); }
     document.addEventListener('click', (event) => { if (mainMenuPopup && !mainMenuPopup.classList.contains('hidden') && !mainMenuPopup.contains(event.target) && event.target !== menuIcon) { closePopup(mainMenuPopup); } if (walletPopup && !walletPopup.classList.contains('hidden') && !walletPopup.contains(event.target) && event.target !== menuWalletBtn) { closePopup(walletPopup); } if (autoPopup && !autoPopup.classList.contains('hidden') && !autoPopup.contains(event.target) && event.target !== menuAutoBtn) { closePopup(autoPopup); } });
     // Menu Item Buttons
-    if (menuWalletBtn) { menuWalletBtn.addEventListener('click', () => { closePopup(mainMenuPopup); openPopup(walletPopup); }); } // Unrestricted wallet open
+    if (menuWalletBtn) { menuWalletBtn.addEventListener('click', () => { closePopup(mainMenuPopup); openPopup(walletPopup); }); }
     if (closeWalletButton) { closeWalletButton.addEventListener('click', () => closePopup(walletPopup)); }
     if (menuAutoBtn) { menuAutoBtn.addEventListener('click', () => { closePopup(mainMenuPopup); openPopup(autoPopup); /* Add setupAutoPlay() if needed */ }); }
     if (closeAutoButton) { closeAutoButton.addEventListener('click', () => closePopup(autoPopup)); }
     if (menuSoundBtn) { menuSoundBtn.addEventListener('click', toggleSound); updateSoundIcon(); /* Set initial icon state */ }
-    if (logoutButton) { logoutButton.addEventListener('click', () => { console.log("Logout clicked"); showAuthScreen(); }); } // Use showAuthScreen for logout
+    if (logoutButton) { logoutButton.addEventListener('click', () => { console.log("Logout clicked"); showAuthScreen(); }); }
 
     // --- Initialize UI ---
     setupWalletUI(); // Setup listeners for wallet elements
