@@ -71,215 +71,50 @@ body {
 }
 
 /* --- Top Bar --- */
-.top-bar {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding-bottom: 0.6rem;
-    flex-shrink: 0; /* Prevent shrinking */
-}
-
-.top-icons {
-    flex-shrink: 0;
-}
-#menuIcon {
-    font-size: 1.6rem;
-    cursor: pointer;
-    color: var(--text-muted);
-    padding: 0 0.3rem;
-    transition: color 0.2s ease;
-    display: inline-block;
-    line-height: 1;
-}
-#menuIcon:hover {
-    color: var(--secondary-accent);
-}
-
-.balance-display {
-    font-size: 1rem;
-    font-weight: 600;
-    background-color: rgba(0,0,0,0.2);
-    padding: 0.3rem 0.8rem;
-    border-radius: 20px;
-    color: var(--green);
-    box-shadow: inset 0 1px 2px rgba(0,0,0,0.2);
-    white-space: nowrap;
-}
+.top-bar { display: flex; justify-content: space-between; align-items: center; padding-bottom: 0.6rem; flex-shrink: 0; }
+.top-icons { flex-shrink: 0; }
+#menuIcon { font-size: 1.6rem; cursor: pointer; color: var(--text-muted); padding: 0 0.3rem; transition: color 0.2s ease; display: inline-block; line-height: 1; }
+#menuIcon:hover { color: var(--secondary-accent); }
+.balance-display { font-size: 1rem; font-weight: 600; background-color: rgba(0,0,0,0.2); padding: 0.3rem 0.8rem; border-radius: 20px; color: var(--green); box-shadow: inset 0 1px 2px rgba(0,0,0,0.2); white-space: nowrap; }
 
 /* --- Secondary Bar --- */
-.secondary-bar {
-    display: flex;
-    justify-content: center; /* Center the player count */
-    align-items: center;
-    padding: 0.5rem 0;
-    margin-bottom: 0.5rem;
-    border-top: 1px solid var(--border-color);
-    border-bottom: 1px solid var(--border-color);
-    flex-shrink: 0;
-    min-height: 40px;
-}
-
-.player-count {
-    font-size: 0.9rem;
-    color: var(--text-muted);
-    background-color: rgba(0,0,0,0.15);
-    padding: 0.25rem 0.6rem;
-    border-radius: 15px;
-}
+.secondary-bar { display: flex; justify-content: center; align-items: center; padding: 0.5rem 0; margin-bottom: 0.5rem; border-top: 1px solid var(--border-color); border-bottom: 1px solid var(--border-color); flex-shrink: 0; min-height: 40px; }
+.player-count { font-size: 0.9rem; color: var(--text-muted); background-color: rgba(0,0,0,0.15); padding: 0.25rem 0.6rem; border-radius: 15px; }
 .player-count span { font-weight: bold; color: var(--text-color); }
 
-
 /* --- Main Interface History Display --- */
-.main-history-display {
-    display: flex;
-    flex-direction: row; /* Arrange items horizontally LTR */
-    justify-content: flex-start; /* Align items to the start */
-    align-items: center;
-    gap: 0.4rem; /* Space between history items */
-    padding: 0.4rem 0; /* Vertical padding */
-    margin-bottom: 0.5rem; /* Space below history before game area */
-    overflow-x: hidden; /* Hide items that overflow horizontally */
-    flex-shrink: 0; /* Prevent shrinking */
-    width: 100%; /* Take full width */
-    min-height: 30px; /* Ensure it has some height even when empty */
-}
-
-/* Base History Item Styling */
-.history-item {
-    padding: 0.3rem 0.5rem; /* Adjust padding */
-    font-size: 0.75rem; /* Slightly smaller font */
-    border-radius: 4px;
-    flex-shrink: 0; /* Prevent items from shrinking */
-    background-color: rgba(0, 0, 0, 0.2); /* Default/base background */
-    border: 1px solid transparent;
-    color: var(--text-muted); /* Default color */
-    text-align: center;
-    min-width: 45px; /* Minimum width for items */
-    font-weight: bold;
-}
-.history-item span { display: block; line-height: 1.2; } /* General span within */
-.history-item-multiplier { font-size: 1em; margin-bottom: 0; line-height: 1.1; } /* Multiplier style */
-.history-item-time { display: none; } /* Hide time element */
-
-
-/* Specific styles for items in the main display */
-.main-history-display .history-item.low {
-    background-color: rgba(160, 160, 192, 0.2); /* Muted background */
-    color: var(--text-muted);
-    border-color: rgba(160, 160, 192, 0.4);
-}
-.main-history-display .history-item.medium {
-    background-color: rgba(176, 143, 255, 0.2); /* Secondary accent background */
-    color: var(--secondary-accent);
-    border-color: rgba(176, 143, 255, 0.4);
-}
-.main-history-display .history-item.high {
-    background-color: rgba(255, 235, 59, 0.15); /* Yellow background */
-    color: var(--yellow);
-    border-color: rgba(255, 235, 59, 0.4);
-}
-
-.main-history-display .history-empty-message {
-    color: var(--text-muted);
-    font-size: 0.8rem;
-    width: 100%;
-    text-align: center;
-    padding: 0.3rem 0;
-}
-
+.main-history-display { display: flex; flex-direction: row; justify-content: flex-start; align-items: center; gap: 0.4rem; padding: 0.4rem 0; margin-bottom: 0.5rem; overflow-x: hidden; flex-shrink: 0; width: 100%; min-height: 30px; }
+.history-item { padding: 0.3rem 0.5rem; font-size: 0.75rem; border-radius: 4px; flex-shrink: 0; background-color: rgba(0, 0, 0, 0.2); border: 1px solid transparent; color: var(--text-muted); text-align: center; min-width: 45px; font-weight: bold; }
+.history-item span { display: block; line-height: 1.2; }
+.history-item-multiplier { font-size: 1em; margin-bottom: 0; line-height: 1.1; }
+.history-item-time { display: none; }
+.main-history-display .history-item.low { background-color: rgba(160, 160, 192, 0.2); color: var(--text-muted); border-color: rgba(160, 160, 192, 0.4); }
+.main-history-display .history-item.medium { background-color: rgba(176, 143, 255, 0.2); color: var(--secondary-accent); border-color: rgba(176, 143, 255, 0.4); }
+.main-history-display .history-item.high { background-color: rgba(255, 235, 59, 0.15); color: var(--yellow); border-color: rgba(255, 235, 59, 0.4); }
+.main-history-display .history-empty-message { color: var(--text-muted); font-size: 0.8rem; width: 100%; text-align: center; padding: 0.3rem 0; }
 
 /* --- Utility Classes --- */
-.hidden {
-    display: none !important;
-    opacity: 0 !important;
-    visibility: hidden !important;
-    pointer-events: none !important;
-}
+.hidden { display: none !important; opacity: 0 !important; visibility: hidden !important; pointer-events: none !important; }
 
 /* --- Popups (General) --- */
-.popup {
-    position: absolute;
-    z-index: 100;
-    background-color: var(--popup-bg);
-    border: 1px solid var(--primary-accent);
-    border-radius: 10px;
-    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
-    backdrop-filter: blur(4px);
-    transition: opacity 0.25s ease, transform 0.25s ease, visibility 0.25s ease;
-    opacity: 1;
-    visibility: visible;
-    box-sizing: border-box;
-}
-/* .popup.hidden is handled by .hidden class above */
-
-/* Centered Popups (Auto, Wallet) */
-.popup:not(.menu-popup) {
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    width: 90%;
-    max-width: 400px;
-    padding: 1rem;
-    max-height: 80vh;
-    overflow-y: auto;
-}
-.popup:not(.menu-popup).hidden {
-    /* Keep specific hidden transform if needed for animation */
-    transform: translate(-50%, -48%) scale(0.95) !important;
-    opacity: 0 !important;
-    visibility: hidden !important;
-}
-
-/* Popup Header (Common for Auto, Wallet) */
-.popup-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 0.8rem;
-    color: var(--secondary-accent);
-    border-bottom: 1px solid var(--border-color);
-    padding-bottom: 0.6rem;
-}
+.popup { position: absolute; z-index: 100; background-color: var(--popup-bg); border: 1px solid var(--primary-accent); border-radius: 10px; box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4); backdrop-filter: blur(4px); transition: opacity 0.25s ease, transform 0.25s ease, visibility 0.25s ease; opacity: 1; visibility: visible; box-sizing: border-box; }
+.popup:not(.menu-popup) { top: 50%; left: 50%; transform: translate(-50%, -50%); width: 90%; max-width: 400px; padding: 1rem; max-height: 80vh; overflow-y: auto; }
+.popup:not(.menu-popup).hidden { transform: translate(-50%, -48%) scale(0.95) !important; opacity: 0 !important; visibility: hidden !important; }
+.popup-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.8rem; color: var(--secondary-accent); border-bottom: 1px solid var(--border-color); padding-bottom: 0.6rem; }
 .popup-header h3 { margin: 0; font-size: 1.1rem; font-weight: 500; }
-.popup-close-btn {
-    background: none; border: none;
-    color: var(--text-muted);
-    font-size: 1.5rem; /* Consistent close button size */
-    cursor: pointer; line-height: 1;
-    padding: 0.2rem 0.4rem; /* Add some padding */
-}
+.popup-close-btn { background: none; border: none; color: var(--text-muted); font-size: 1.5rem; cursor: pointer; line-height: 1; padding: 0.2rem 0.4rem; }
 .popup-close-btn:hover { color: var(--text-color); }
 
-
 /* --- Main Menu Popup --- */
-.menu-popup {
-    top: 50px; /* Position below top bar */
-    right: 10px; left: auto;
-    transform: none;
-    width: auto; min-width: 180px; max-width: 250px;
-    padding: 0.5rem 0;
-    background-color: var(--menu-popup-bg);
-    border-color: var(--secondary-accent);
-    border-radius: 8px;
-    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
-    transform-origin: top right;
-    overflow: hidden;
-}
-.menu-popup.hidden {
-    transform: scale(0.95) !important;
-    opacity: 0 !important;
-    visibility: hidden !important;
-}
-.menu-popup .menu-close-btn {
-    position: absolute; top: 2px; right: 5px; padding: 0.3rem;
-}
+.menu-popup { top: 50px; right: 10px; left: auto; transform: none; width: auto; min-width: 180px; max-width: 250px; padding: 0.5rem 0; background-color: var(--menu-popup-bg); border-color: var(--secondary-accent); border-radius: 8px; box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3); transform-origin: top right; overflow: hidden; }
+.menu-popup.hidden { transform: scale(0.95) !important; opacity: 0 !important; visibility: hidden !important; }
+.menu-popup .menu-close-btn { position: absolute; top: 2px; right: 5px; padding: 0.3rem; }
 .menu-items { display: flex; flex-direction: column; }
 .menu-item { background: none; border: none; color: var(--text-color); padding: 0.8rem 1.2rem; text-align: left; font-size: 0.95rem; cursor: pointer; display: flex; align-items: center; gap: 0.8rem; border-bottom: 1px solid var(--border-color); transition: background-color 0.2s ease, color 0.2s ease; width: 100%; }
 .menu-item:last-child { border-bottom: none; }
 .menu-item:hover { background-color: rgba(255, 255, 255, 0.1); color: var(--secondary-accent); }
 .menu-item #menuSoundIcon { display: inline-block; width: 1.2em; text-align: center; }
 .menu-item #menuSoundIcon.muted { color: var(--red); opacity: 0.7; }
-
 
 /* --- Auto Settings Popup --- */
 .auto-settings { display: flex; flex-direction: column; gap: 1rem; }
@@ -322,18 +157,8 @@ body {
 .wallet-status.pending { color: var(--yellow); }
 
 /* --- Game Area --- */
-.game-area {
-    flex-grow: 1; display: flex; flex-direction: column; justify-content: center;
-    align-items: center; position: relative; overflow: hidden; padding: 1rem 0;
-    background-color: var(--bg-color); background-size: cover;
-    background-position: center bottom; background-repeat: no-repeat;
-}
-.multiplier-zone {
-    font-size: clamp(3rem, 10vw, 4.5rem); font-weight: 700; color: var(--text-color);
-    margin-bottom: 0.2rem; line-height: 1.1; min-height: 1.1em;
-    transition: color 0.3s ease, transform 0.1s ease, text-shadow 0.3s ease;
-    text-shadow: 0 0 8px rgba(255, 235, 59, 0); z-index: 2;
-}
+.game-area { flex-grow: 1; display: flex; flex-direction: column; justify-content: center; align-items: center; position: relative; overflow: hidden; padding: 1rem 0; background-color: var(--bg-color); background-size: cover; background-position: center bottom; background-repeat: no-repeat; }
+.multiplier-zone { font-size: clamp(3rem, 10vw, 4.5rem); font-weight: 700; color: var(--text-color); margin-bottom: 0.2rem; line-height: 1.1; min-height: 1.1em; transition: color 0.3s ease, transform 0.1s ease, text-shadow 0.3s ease; text-shadow: 0 0 8px rgba(255, 235, 59, 0); z-index: 2; }
 .multiplier-zone.running { color: var(--yellow); text-shadow: 0 0 12px rgba(255, 235, 59, 0.6); }
 .multiplier-zone.crashed { color: var(--red); text-shadow: 0 0 8px rgba(229, 57, 53, 0.5); }
 .multiplier-zone.cashed_out { color: var(--green); text-shadow: 0 0 8px rgba(76, 175, 80, 0.5); }
@@ -385,37 +210,39 @@ body {
 #mainActionButton { width: 100%; padding: 0.9rem; font-size: 1.2rem; font-weight: bold; border: none; border-radius: 8px; cursor: pointer; transition: background-color 0.2s ease, color 0.2s ease, transform 0.1s ease, box-shadow 0.2s ease, opacity 0.2s ease; color: var(--text-color); text-transform: uppercase; letter-spacing: 0.5px; box-shadow: 0 2px 4px rgba(0,0,0,0.2); }
 #mainActionButton:active:not(:disabled) { transform: scale(0.98); box-shadow: var(--button-active-shadow); }
 #mainActionButton.state-idle { background-color: var(--green); } #mainActionButton.state-idle:hover:not(:disabled) { background-color: #5cb85c; }
-#mainActionButton.state-waiting_start { background-color: var(--text-muted); color: #666; cursor: not-allowed; box-shadow: none; } /* Bet Placed / Preparing */
+#mainActionButton.state-waiting_start { background-color: var(--text-muted); color: #666; cursor: not-allowed; box-shadow: none; }
 #mainActionButton.state-running { background-color: var(--yellow); color: #333; } #mainActionButton.state-running:hover:not(:disabled) { background-color: #ffdd70; }
 #mainActionButton.state-cashed_out { background-color: var(--green); color: var(--text-color); cursor: not-allowed; box-shadow: none; }
 #mainActionButton.state-crashed { background-color: var(--red); color: var(--text-color); cursor: not-allowed; box-shadow: none; }
 #mainActionButton:disabled { background-color: #555 !important; color: #aaa !important; cursor: not-allowed; box-shadow: none !important; opacity: 0.7; }
 
 /* --- Authentication Styles --- */
-.auth-wrapper { width: 100%; height: 100%; display: flex; justify-content: center; align-items: center; background: linear-gradient(to bottom, var(--bg-color), var(--bg-secondary)); padding: 20px; }
+.auth-wrapper { width: 100%; height: 100%; display: flex; justify-content: center; align-items: center; background: linear-gradient(to bottom, var(--bg-color), var(--bg-secondary)); padding: 20px; flex-direction: column; gap: 1rem; }
 .auth-wrapper.hidden { display: none !important; }
 .auth-box { background-color: var(--bg-secondary); padding: 2rem 1.5rem; border-radius: 10px; box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3); width: 100%; max-width: 360px; border: 1px solid var(--border-color); }
+#registrationSuccess { border-color: var(--green); text-align: center;} /* Style recovery code box */
+#registrationSuccess h2 { color: var(--green); }
+#registrationSuccess #recoveryCodeDisplay { font-size: 1.4em; font-weight: bold; color: var(--primary-accent); margin: 15px 0; padding: 12px; background-color: #f0f0f0; border-radius: 5px; text-align: center; letter-spacing: 3px; font-family: monospace; border: 1px dashed var(--primary-accent); display: inline-block; /* Allow centering */ }
+#registrationSuccess p { margin-bottom: 10px; line-height: 1.4;}
+#registrationSuccess p strong { color: var(--red); }
+#proceedToLoginBtn { margin-top: 15px; }
+
 .auth-box h2 { color: var(--primary-accent); text-align: center; margin-bottom: 1.5rem; font-weight: 500; }
 .input-group { margin-bottom: 1rem; }
 .input-group label { display: block; color: var(--text-muted); margin-bottom: 0.4rem; font-size: 0.9rem; }
-.input-group input[type="text"],
-.input-group input[type="email"], /* Added style for email */
-.input-group input[type="password"] { width: 100%; padding: 0.7rem 0.8rem; background-color: var(--input-bg); border: 1px solid var(--border-color); border-radius: 6px; color: var(--text-color); font-size: 1rem; transition: border-color 0.2s ease; }
-.input-group input[type="text"]:focus,
-.input-group input[type="email"]:focus,
-.input-group input[type="password"]:focus { outline: none; border-color: var(--primary-accent); }
-.auth-box button[type="submit"] { width: 100%; padding: 0.8rem; background-color: var(--button-bg); border: none; border-radius: 6px; color: var(--text-color); font-size: 1rem; font-weight: 600; cursor: pointer; transition: background-color 0.2s ease, transform 0.1s ease, opacity 0.2s ease; margin-top: 0.5rem; }
-.auth-box button[type="submit"]:hover:not(:disabled) { background-color: var(--button-hover); }
-.auth-box button[type="submit"]:active:not(:disabled) { transform: scale(0.98); }
+.input-group input[type="text"], .input-group input[type="email"], .input-group input[type="password"] { width: 100%; padding: 0.7rem 0.8rem; background-color: var(--input-bg); border: 1px solid var(--border-color); border-radius: 6px; color: var(--text-color); font-size: 1rem; transition: border-color 0.2s ease; }
+.input-group input[type="text"]:focus, .input-group input[type="email"]:focus, .input-group input[type="password"]:focus { outline: none; border-color: var(--primary-accent); }
+.auth-box button[type="submit"], #proceedToLoginBtn { width: 100%; padding: 0.8rem; background-color: var(--button-bg); border: none; border-radius: 6px; color: var(--text-color); font-size: 1rem; font-weight: 600; cursor: pointer; transition: background-color 0.2s ease, transform 0.1s ease, opacity 0.2s ease; margin-top: 0.5rem; }
+.auth-box button[type="submit"]:hover:not(:disabled), #proceedToLoginBtn:hover { background-color: var(--button-hover); }
+.auth-box button[type="submit"]:active:not(:disabled), #proceedToLoginBtn:active { transform: scale(0.98); }
 .auth-box button[type="submit"]:disabled { background-color: #555; cursor: not-allowed; opacity: 0.7; }
 .error-message { color: var(--red); background-color: rgba(229, 57, 53, 0.1); border: 1px solid rgba(229, 57, 53, 0.3); padding: 0.6rem 0.8rem; border-radius: 5px; margin-bottom: 1rem; font-size: 0.85rem; text-align: center; display: none; line-height: 1.3; }
 .error-message.show { display: block; }
-/* Style for Success Message (used in login error area) */
 .error-message.success-message { color: var(--green); background-color: rgba(76, 175, 80, 0.1); border: 1px solid rgba(76, 175, 80, 0.3); }
 .switch-form { text-align: center; margin-top: 1.5rem; font-size: 0.9rem; color: var(--text-muted); }
 .switch-form a { color: var(--secondary-accent); text-decoration: none; font-weight: 500; }
 .switch-form a:hover { text-decoration: underline; }
-.forgot-password { text-align: right; font-size: 0.8em; margin-top: -0.5rem; margin-bottom: 1rem; } /* Added style for forgot pwd link */
+.forgot-password { text-align: right; font-size: 0.8em; margin-top: -0.5rem; margin-bottom: 1rem; }
 .forgot-password a { color: var(--secondary-accent); text-decoration: none; }
 .forgot-password a:hover { text-decoration: underline; }
 
