@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin - Deposit Requests</title>
+    <link rel="stylesheet" href="style.css">
+    <style>
+        /* Basic Admin Table Styles */
+        body { background-color: #f4f4f4; color: #333; padding: 20px; }
+        h1 { text-align: center; color: #555; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; background-color: #fff; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        th, td { padding: 10px 12px; border: 1px solid #ddd; text-align: left; font-size: 0.9em;}
+        th { background-color: #e9e9e9; font-weight: bold; }
+        tbody tr:nth-child(odd) { background-color: #f9f9f9; }
+        button.admin-action { padding: 5px 10px; font-size: 0.8em; cursor: pointer; margin-right: 5px; border-radius: 3px; border: 1px solid transparent; }
+        button.approve { background-color: #28a745; color: white; border-color: #28a745;}
+        button.reject { background-color: #dc3545; color: white; border-color: #dc3545;}
+        button:disabled { background-color: #ccc; cursor: not-allowed;}
+        .status-pending { font-weight: bold; color: orange; }
+        .status-completed { color: green; }
+        .status-rejected { color: red; }
+        #adminMessage { margin-top: 15px; text-align: center; font-weight: bold;}
+        .loading { text-align: center; padding: 20px; font-style: italic;}
+    </style>
+</head>
+<body>
+    <h1>Admin Panel - Pending Deposit Requests</h1>
+    <div id="adminMessage"></div>
+    <button id="refreshRequests" style="padding: 8px 15px; cursor: pointer;">Refresh List</button>
+    <div class="loading" id="loadingIndicator">Loading requests...</div>
+    <table>
+        <thead>
+            <tr>
+                <th>Request ID</th>
+                <th>Username</th>
+                <th>Transaction ID</th>
+                <th>Requested At</th>
+                <th>Status</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody id="requestsTableBody">
+            </tbody>
+    </table>
+
+    <script src="admin.js"></script>
+</body>
+</html>
