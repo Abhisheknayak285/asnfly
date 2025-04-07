@@ -9,11 +9,11 @@
         .container { max-width: 1200px; margin: 10px auto; background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
         h1, h2 { text-align: center; color: #444; margin-bottom: 20px; }
         h2 { margin-top: 30px; }
-        table { width: 100%; border-collapse: collapse; margin-top: 15px; }
-        th, td { padding: 8px 10px; border: 1px solid #ccc; text-align: left; font-size: 0.85em; vertical-align: middle; }
+        table { width: 100%; border-collapse: collapse; margin-top: 15px; table-layout: fixed; /* Helps with consistent column width */ }
+        th, td { padding: 8px 10px; border: 1px solid #ccc; text-align: left; font-size: 0.85em; vertical-align: middle; word-wrap: break-word; /* Wrap long text */}
         th { background-color: #f2f2f2; font-weight: bold; }
         tbody tr:nth-child(odd) { background-color: #f9f9f9; }
-        button.admin-action { padding: 4px 8px; font-size: 0.75em; cursor: pointer; margin-right: 5px; border-radius: 3px; border: 1px solid transparent; color: white; }
+        button.admin-action { padding: 4px 8px; font-size: 0.75em; cursor: pointer; margin-right: 5px; border-radius: 3px; border: 1px solid transparent; color: white; min-width: 60px; text-align: center; }
         button.approve { background-color: #28a745; border-color: #218838;}
         button.reject { background-color: #dc3545; border-color: #c82333;}
         button:disabled { background-color: #aaa; border-color: #999; color: #eee; cursor: not-allowed;}
@@ -25,9 +25,17 @@
         .admin-message.error { color: #721c24; background-color: #f8d7da; border: 1px solid #f5c6cb; }
         .admin-message.success { color: #155724; background-color: #d4edda; border: 1px solid #c3e6cb; }
         .loading { text-align: center; padding: 15px; font-style: italic; color: #666; }
-        .refresh-button { padding: 8px 15px; cursor: pointer; margin-bottom: 15px; background-color: #007bff; color: white; border: none; border-radius: 4px; }
+        .refresh-button { padding: 8px 15px; cursor: pointer; margin-bottom: 15px; background-color: #007bff; color: white; border: none; border-radius: 4px; margin-right: 10px;}
         hr { border: none; border-top: 1px solid #ddd; margin: 30px 0; }
-        td { word-break: break-all; } /* Prevent long IDs from breaking layout */
+        /* Adjust column widths if needed */
+        th:nth-child(1), td:nth-child(1) { width: 8%; } /* ID */
+        th:nth-child(2), td:nth-child(2) { width: 15%; } /* Username / Type */
+        th:nth-child(3), td:nth-child(3) { width: 20%; } /* Txn ID / Amount */
+        th:nth-child(4), td:nth-child(4) { width: 17%; } /* Requested / UPI / Details */
+        th:nth-child(5), td:nth-child(5) { width: 10%; } /* Status / Amount */
+        th:nth-child(6), td:nth-child(6) { width: 15%; } /* Actions / Status */
+        /* Adjust remaining columns as needed */
+
     </style>
 </head>
 <body>
@@ -74,6 +82,29 @@
             <tbody id="withdrawalRequestsTableBody">
                 </tbody>
         </table>
+
+         <hr>
+
+        <h2>Request History (Latest 50 Processed)</h2>
+        <div id="adminHistoryMessage" class="admin-message"></div>
+        <button id="refreshHistory" class="refresh-button">Refresh History</button>
+        <div class="loading" id="loadingHistoryIndicator">Loading history...</div>
+        <table>
+            <thead>
+                <tr>
+                    <th>Req ID</th>
+                    <th>Type</th>
+                    <th>Username</th>
+                    <th>Details</th> <th>Amount (₹)</th> <th>Status</th>
+                    <th>Requested At</th>
+                    <th>Processed At</th>
+                    <th>Processed By</th>
+                </tr>
+            </thead>
+            <tbody id="historyTableBody">
+                </tbody>
+        </table>
+
     </div> <script src="admin.js"></script>
 </body>
 </html>
