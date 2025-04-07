@@ -1,11 +1,11 @@
-// public/script.js - Client for Game Interface (with DETAILED Reg Success Debug Logs)
+// public/script.js - Client for Game Interface (with TEMPORARY Reg Success Debugging)
 
 document.addEventListener('DOMContentLoaded', () => {
     console.log("Full Multiplayer crash game client script loaded.");
     // --- Current Time Context ---
     const now = new Date();
-    // console.log("Current time:", now.toLocaleString("en-IN", { timeZone: "Asia/Kolkata" }), "(IST)");
-    // console.log("Current Date:", now.toLocaleDateString("en-CA")); //
+    console.log("Current time:", now.toLocaleString("en-IN", { timeZone: "Asia/Kolkata" }), "(IST)");
+    console.log("Current Date:", now.toLocaleDateString("en-CA")); //
 
 
     // --- Get DOM Elements ---
@@ -26,9 +26,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const showRegisterLink = document.getElementById('showRegister');
     const showLoginLink = document.getElementById('showLogin');
     const forgotPasswordLink = document.getElementById('forgotPasswordLink');
-    const registrationSuccessDiv = document.getElementById('registrationSuccess');
-    const recoveryCodeDisplay = document.getElementById('recoveryCodeDisplay');
-    const proceedToLoginBtn = document.getElementById('proceedToLoginBtn');
+    const registrationSuccessDiv = document.getElementById('registrationSuccess'); // Still selected, but not used in this test
+    const recoveryCodeDisplay = document.getElementById('recoveryCodeDisplay'); // Still selected, but not used in this test
+    const proceedToLoginBtn = document.getElementById('proceedToLoginBtn'); // Still selected, but not used in this test
     // Game elements
     const multiplierDisplay = document.getElementById('multiplier');
     const gameStatusDisplay = document.getElementById('gameStatus');
@@ -177,50 +177,66 @@ document.addEventListener('DOMContentLoaded', () => {
             try {
                 const response = await fetch('/register', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username, password, email }) });
                 const data = await response.json();
+
+                // *** THIS IS THE MODIFIED SUCCESS BLOCK with DEBUG LOGS ***
                 if (response.ok && data.status === 'success') {
-                    // *** ADDED DEBUG LOGS from response #177 ***
                     console.log("Full registration success data from server:", JSON.stringify(data));
                     console.log("Registration successful (recoveryCode check):", data.recoveryCode);
                     console.log("[Client DEBUG] Attempting to show recovery code div...");
 
-                     // *** ADDED CHECKS AND LOGS from response #184 ***
-                     console.log("[Client DEBUG] Checking if authContainer exists...");
-                     if (authContainer) {
-                         console.log("[Client DEBUG] authContainer found. Attempting to hide it.");
-                         authContainer.classList.add('hidden');
-                         console.log("[Client DEBUG] authContainer hidden.");
-                     } else {
-                         console.error("[Client DEBUG] CRITICAL ERROR: authContainer element not found!");
-                         showGameNotification("UI Error: Cannot hide auth container.", "error", 10000);
-                         return; // Stop execution if critical element missing
-                     }
+                    // --- DETAILED CHECKS ---
+                    console.log("[Client DEBUG] Checking if registerForm exists...");
+                    if (registerForm) {
+                        registerForm.reset();
+                         console.log("[Client DEBUG] registerForm reset.");
+                     } else { console.error("[Client DEBUG] registerForm element NOT found!"); }
 
-                     console.log("[Client DEBUG] Checking if registrationSuccessDiv and recoveryCodeDisplay exist...");
-                     if (registrationSuccessDiv && recoveryCodeDisplay) {
-                         console.log("[Client DEBUG] Both success elements found. Attempting to display code.");
-                         recoveryCodeDisplay.textContent = data.recoveryCode || 'ERROR: CODE MISSING';
-                         console.log("[Client DEBUG] Set recoveryCodeDisplay text.");
-                         registrationSuccessDiv.classList.remove('hidden');
-                         console.log("[Client DEBUG] Should have shown recovery code div now.");
-                     } else {
-                         // Log which specific element is missing
-                         console.error("[Client DEBUG] CRITICAL ERROR: Cannot show recovery code!");
-                         console.log("[Client DEBUG] registrationSuccessDiv found:", !!registrationSuccessDiv); // true or false
-                         console.log("[Client DEBUG] recoveryCodeDisplay found:", !!recoveryCodeDisplay); // true or false
-                          // Fallback alert if elements are missing
-                         alert(`Registration Successful!\n\nIMPORTANT: Your Recovery Code is: ${data.recoveryCode || 'ERROR'}\n\nSave this code securely! It is the ONLY way to reset your password.`);
-                         // Attempt fallback UI change (show login form)
-                          if(registerForm) registerForm.classList.add('hidden');
-                          if(loginForm) { loginForm.classList.remove('hidden'); loginForm.reset(); }
-                     }
-                      // We keep registerForm.reset() outside the check for safety
-                     if (registerForm) registerForm.reset();
 
-                } else { console.error("Registration failed:", data.message); displayRegisterError(data.message || 'Registration failed.'); }
-            } catch (error) { console.error("Registration fetch error:", error); displayRegisterError('Network error or server unavailable.'); }
-             finally { if(registerButton) registerButton.disabled = false; }
+                    console.log("[Client DEBUG] Checking if authContainer exists...");
+                    if (authContainer) {
+                        console.log("[Client DEBUG] authContainer found. Attempting to hide it.");
+                        authContainer.classList.add('hidden');
+                        console.log("[Client DEBUG] authContainer hidden.");
+                    } else {
+                        console.error("[Client DEBUG] CRITICAL ERROR: authContainer element not found! Cannot hide forms.");
+                        alert("UI Error E01 occurred. Please refresh.");
+                        return; // Stop further execution within this block
+                    }
+
+                    console.log("[Client DEBUG] Checking if registrationSuccessDiv and recoveryCodeDisplay exist...");
+                    if (registrationSuccessDiv && recoveryCodeDisplay) {
+                        console.log("[Client DEBUG] Both success elements found. Attempting to display code.");
+                        recoveryCodeDisplay.textContent = data.recoveryCode || 'ERROR: CODE MISSING';
+                        console.log("[Client DEBUG] Set recoveryCodeDisplay text.");
+                        registrationSuccessDiv.classList.remove('hidden');
+                        console.log("[Client DEBUG] Should have shown recovery code div now.");
+                    } else {
+                        // Log which specific element is missing
+                        console.error("[Client DEBUG] CRITICAL ERROR: Cannot show recovery code!");
+                        console.log("[Client DEBUG] registrationSuccessDiv found:", !!registrationSuccessDiv); // true or false
+                        console.log("[Client DEBUG] recoveryCodeDisplay found:", !!recoveryCodeDisplay); // true or false
+                         // Fallback alert if elements are missing
+                        alert(`Registration Successful!\n\nIMPORTANT: Your Recovery Code is: ${data.recoveryCode || 'ERROR'}\n\nSave this code securely! It is the ONLY way to reset your password.`);
+                        // Attempt fallback UI change (show login form)
+                         if(registerForm) registerForm.classList.add('hidden'); // May already be hidden by reset?
+                         if(loginForm) { loginForm.classList.remove('hidden'); /* Don't reset login form here */ }
+                    }
+                    // --- END DETAILED CHECKS ---
+
+                } else { // Handle registration failure response from server
+                    console.error("Registration failed:", data.message);
+                    displayRegisterError(data.message || 'Registration failed.');
+                }
+            } catch (error) { // Handle network/fetch error
+                console.error("Registration fetch error:", error);
+                displayRegisterError('Network error or server unavailable.');
+            }
+             finally { // Re-enable button regardless of success/failure
+                 if(registerButton) registerButton.disabled = false;
+            }
         });
-    }
+    } // End if(registerForm)
+
     // Switch between Login/Register links
     if (showRegisterLink) { showRegisterLink.addEventListener('click', (event) => { event.preventDefault(); clearLoginError(); if(loginForm) loginForm.classList.add('hidden'); if(registerForm) registerForm.classList.remove('hidden'); }); }
     if (showLoginLink) { showLoginLink.addEventListener('click', (event) => { event.preventDefault(); clearRegisterError(); if(registrationSuccessDiv) registrationSuccessDiv.classList.add('hidden'); if(registerForm) registerForm.classList.add('hidden'); if(loginForm) loginForm.classList.remove('hidden'); }); }
