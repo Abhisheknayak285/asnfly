@@ -58,7 +58,7 @@ body {
     display: flex;
     flex-direction: column;
     position: relative; /* REQUIRED for absolute children positioning */
-    overflow: hidden; /* REQUIRED to contain absolute children/prevent wrapper scroll */
+    /* overflow: hidden; /* REQUIRED to contain absolute children/prevent wrapper scroll */ */
     border-radius: 8px;
 }
 
