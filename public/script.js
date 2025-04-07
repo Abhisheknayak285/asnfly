@@ -1,11 +1,12 @@
-// public/script.js - Client for Game Interface (Handles Recovery Code Display)
+// public/script.js - Client for Game Interface (Final Version with All Features)
 
 document.addEventListener('DOMContentLoaded', () => {
-    console.log("Main game client script loaded (Recovery Code Version).");
+    console.log("Full Multiplayer crash game client script loaded.");
     // --- Current Time Context ---
     const now = new Date();
     console.log("Current time:", now.toLocaleString("en-IN", { timeZone: "Asia/Kolkata" }), "(IST)");
     console.log("Current Date:", now.toLocaleDateString("en-CA")); // YYYY-MM-DD format
+
 
     // --- Get DOM Elements ---
     // Auth & Registration Success
@@ -18,7 +19,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const registerUsernameInput = document.getElementById('registerUsername');
     const registerPasswordInput = document.getElementById('registerPassword');
     const registerConfirmPasswordInput = document.getElementById('registerConfirmPassword');
-    const registerEmailInput = document.getElementById('registerEmail');
+    const registerEmailInput = document.getElementById('registerEmail'); // Selection for email input
     const loginError = document.getElementById('loginError');
     const registerError = document.getElementById('registerError');
     const loginButton = document.getElementById('loginButton');
@@ -80,7 +81,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let currentBetThisRound = null;
     let hasCashedOutThisRound = false;
     let currentServerState = 'IDLE';
-    window.socket = null; // Make socket global
+    window.socket = null; // Global socket variable
     let soundEnabled = true;
     let loggedInUsername = null;
     let notificationTimeout = null;
@@ -95,22 +96,25 @@ document.addEventListener('DOMContentLoaded', () => {
     function updateHistoryDisplay(historyArray) { if (!mainHistoryDisplay) return; mainHistoryDisplay.innerHTML = ''; if (!historyArray || historyArray.length === 0) { mainHistoryDisplay.innerHTML = '<span class="history-empty-message">No history yet.</span>'; return; } const itemsToDisplay = historyArray.slice(0, 12); itemsToDisplay.forEach(multiplier => { const item = document.createElement('div'); item.classList.add('history-item'); if (multiplier < 1.5) item.classList.add('low'); else if (multiplier < 5) item.classList.add('medium'); else item.classList.add('high'); item.innerHTML = `<span class="history-item-multiplier">${multiplier.toFixed(2)}x</span>`; mainHistoryDisplay.appendChild(item); }); }
     function updateSoundIcon() { if (!menuSoundIcon) return; if (soundEnabled) { menuSoundIcon.textContent = '🔊'; menuSoundIcon.classList.remove('muted'); } else { menuSoundIcon.textContent = '🔇'; menuSoundIcon.classList.add('muted'); } }
     function toggleSound() { soundEnabled = !soundEnabled; updateSoundIcon(); console.log('Sound Enabled:', soundEnabled); /* Add sound logic */ }
+    // Error/Success display helpers
     function displayLoginError(message) { if(loginError) { loginError.textContent = message; loginError.classList.remove('success-message'); loginError.classList.add('show'); } }
     function clearLoginError() { if(loginError) { loginError.textContent = ''; loginError.classList.remove('show', 'success-message'); } }
     function displayRegisterError(message) { if(registerError) { registerError.textContent = message; registerError.classList.remove('success-message'); registerError.classList.add('show'); } }
     function clearRegisterError() { if(registerError) { registerError.textContent = ''; registerError.classList.remove('show', 'success-message'); } }
+    // In-game notification helper
     function showGameNotification(message, type = 'error', duration = 3000) { if (!gameNotification) return; if (notificationTimeout) { clearTimeout(notificationTimeout); } gameNotification.textContent = message; gameNotification.className = 'game-notification'; if (type) { gameNotification.classList.add(type); } gameNotification.classList.add('show'); notificationTimeout = setTimeout(() => { gameNotification.classList.remove('show'); }, duration); }
+
 
     // --- Show/Hide Auth vs Game ---
     function showGameScreen() { if (!authContainer || !gameWrapper) return; console.log("Showing game screen..."); if(authContainer) authContainer.classList.add('hidden'); if(registrationSuccessDiv) registrationSuccessDiv.classList.add('hidden'); if(gameWrapper) gameWrapper.classList.remove('hidden'); if(gameStatusDisplay) gameStatusDisplay.textContent = "Connecting..."; if(multiplierDisplay) multiplierDisplay.textContent = "---"; if(balanceDisplay) balanceDisplay.textContent = "..."; if(playerCountDisplay) playerCountDisplay.textContent = "-"; if(mainHistoryDisplay) mainHistoryDisplay.innerHTML = ''; closeAllPopups(); }
-    function showAuthScreen() { if (!authContainer || !gameWrapper) return; console.log("Showing auth screen..."); if(window.socket) { window.socket.disconnect(); window.socket = null; } loggedInUsername = null; if(authContainer) authContainer.classList.remove('hidden'); if(gameWrapper) gameWrapper.classList.add('hidden'); if(registrationSuccessDiv) registrationSuccessDiv.classList.add('hidden'); clearLoginError(); clearRegisterError(); if(loginForm) loginForm.reset(); if(registerForm) registerForm.reset(); if(loginForm) loginForm.classList.remove('hidden'); // Ensure login form is visible on logout/return closeAllPopups(); }
+    function showAuthScreen() { if (!authContainer || !gameWrapper) return; console.log("Showing auth screen..."); if(window.socket) { window.socket.disconnect(); window.socket = null; } loggedInUsername = null; if(authContainer) authContainer.classList.remove('hidden'); if(gameWrapper) gameWrapper.classList.add('hidden'); if(registrationSuccessDiv) registrationSuccessDiv.classList.add('hidden'); clearLoginError(); clearRegisterError(); if(loginForm) loginForm.reset(); if(registerForm) registerForm.reset(); if(loginForm) loginForm.classList.remove('hidden'); closeAllPopups(); }
 
     // --- WebSocket Connection ---
     function connectWebSocket() {
         if (window.socket) { console.log("WebSocket already connected or connecting."); return; }
         if (!loggedInUsername) { console.error("Cannot connect WebSocket without loggedInUsername."); return; }
         console.log("Initializing WebSocket connection...");
-        window.socket = io();
+        window.socket = io(); // Assign to global variable
 
         window.socket.on('connect', () => { console.log(`[Client DEBUG] WebSocket connected! Socket ID: ${window.socket.id}`); if (gameStatusDisplay) gameStatusDisplay.textContent = "Authenticating..."; console.log(`[Client DEBUG] Sending 'authenticate' event for user: ${loggedInUsername}`); window.socket.emit('authenticate', { username: loggedInUsername }); console.log("[Client DEBUG] 'authenticate' event sent."); });
         window.socket.on('disconnect', (reason) => { console.log(`[Client DEBUG] Disconnected from server. Reason: ${reason}`); showGameNotification('Disconnected from server!', 'error', 5000); if (gameStatusDisplay) gameStatusDisplay.textContent = "Disconnected"; if (multiplierDisplay) multiplierDisplay.textContent = '---'; if (mainActionButton) { mainActionButton.textContent = 'Offline'; mainActionButton.disabled = true; } setBetControlsDisabled(true); if (rocket) rocket.className = 'rocket-placeholder'; if (cloudsBackground) cloudsBackground.classList.remove('clouds-active'); currentBetThisRound = null; hasCashedOutThisRound = false; currentServerState = 'IDLE'; window.socket = null; });
@@ -164,7 +168,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (registerForm) { registerForm.addEventListener('submit', async (event) => { event.preventDefault(); clearRegisterError(); const username = registerUsernameInput.value; const password = registerPasswordInput.value; const confirmPassword = registerConfirmPasswordInput.value; const email = registerEmailInput ? registerEmailInput.value : null; if (password !== confirmPassword) { displayRegisterError('Passwords do not match.'); return; } if (!username || username.length < 3) { displayRegisterError('Username must be >= 3 chars.'); return; } if (!password || password.length < 6) { displayRegisterError('Password must be >= 6 chars.'); return; } if (!email || !email.includes('@')) { displayRegisterError('Please enter a valid email.'); return; } if(registerButton) registerButton.disabled = true; try { const response = await fetch('/register', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username, password, email }) }); const data = await response.json(); if (response.ok && data.status === 'success') { console.log("Registration successful:", data.recoveryCode); /* --- Show Recovery Code Div --- */ if (registerForm) registerForm.reset(); if (authContainer) authContainer.classList.add('hidden'); if (registrationSuccessDiv && recoveryCodeDisplay) { recoveryCodeDisplay.textContent = data.recoveryCode || 'ERROR: CODE MISSING'; registrationSuccessDiv.classList.remove('hidden'); } else { alert(`Registration Successful!\n\nIMPORTANT: Your Recovery Code is: ${data.recoveryCode || 'ERROR'}\n\nSave this code securely! It is the ONLY way to reset your password.`); if(registerForm) registerForm.classList.add('hidden'); if(loginForm) { loginForm.classList.remove('hidden'); loginForm.reset(); } } /* --- End Recovery Code Display --- */ } else { console.error("Registration failed:", data.message); displayRegisterError(data.message || 'Registration failed.'); } } catch (error) { console.error("Registration fetch error:", error); displayRegisterError('Network error or server unavailable.'); } finally { if(registerButton) registerButton.disabled = false; } }); }
     // Switch between Login/Register links
     if (showRegisterLink) { showRegisterLink.addEventListener('click', (event) => { event.preventDefault(); clearLoginError(); if(loginForm) loginForm.classList.add('hidden'); if(registerForm) registerForm.classList.remove('hidden'); }); }
-    if (showLoginLink) { showLoginLink.addEventListener('click', (event) => { event.preventDefault(); clearRegisterError(); if(registerForm) registerForm.classList.add('hidden'); if(loginForm) loginForm.classList.remove('hidden'); }); }
+    if (showLoginLink) { showLoginLink.addEventListener('click', (event) => { event.preventDefault(); clearRegisterError(); if(registrationSuccessDiv) registrationSuccessDiv.classList.add('hidden'); if(registerForm) registerForm.classList.add('hidden'); if(loginForm) loginForm.classList.remove('hidden'); }); } // Also hide success div when switching
     // Proceed to Login Button (after seeing recovery code)
     if (proceedToLoginBtn) { proceedToLoginBtn.addEventListener('click', () => { if (registrationSuccessDiv) registrationSuccessDiv.classList.add('hidden'); if (authContainer) authContainer.classList.remove('hidden'); if (registerForm) registerForm.classList.add('hidden'); if (loginForm) loginForm.classList.remove('hidden'); }); }
     // Main Game Action Button
