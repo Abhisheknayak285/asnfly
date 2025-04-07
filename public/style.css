@@ -1,3 +1,5 @@
+/* public/style.css - Full Stylesheet */
+
 /* --- General Setup & Theme --- */
 :root {
     /* Theme Colors (adjust if needed) */
@@ -55,8 +57,8 @@ body {
     box-shadow: 0 0 20px rgba(138, 93, 255, 0.25);
     display: flex;
     flex-direction: column;
-    position: relative; /* <<< REQUIRED for absolute children positioning */
-    overflow: hidden; /* <<< REQUIRED to contain absolute children/prevent wrapper scroll */
+    position: relative; /* REQUIRED for absolute children positioning */
+    overflow: hidden; /* REQUIRED to contain absolute children/prevent wrapper scroll */
     border-radius: 8px;
 }
 
@@ -247,8 +249,6 @@ body {
     padding: 0.2rem 0.4rem; /* Add some padding */
 }
 .popup-close-btn:hover { color: var(--text-color); }
-/* Specific size for centered popup close buttons if desired */
-/* .popup:not(.menu-popup) .popup-close-btn { font-size: 1.8rem; } */
 
 
 /* --- Main Menu Popup --- */
@@ -266,17 +266,12 @@ body {
     overflow: hidden;
 }
 .menu-popup.hidden {
-    transform: scale(0.95) !important; /* Keep specific hidden transform */
+    transform: scale(0.95) !important;
     opacity: 0 !important;
     visibility: hidden !important;
 }
-/* Position close button inside menu */
 .menu-popup .menu-close-btn {
-    position: absolute;
-    top: 2px;
-    right: 5px;
-    /* font-size: 1.5rem; -> Inherits from .popup-close-btn */
-    padding: 0.3rem;
+    position: absolute; top: 2px; right: 5px; padding: 0.3rem;
 }
 .menu-items { display: flex; flex-direction: column; }
 .menu-item { background: none; border: none; color: var(--text-color); padding: 0.8rem 1.2rem; text-align: left; font-size: 0.95rem; cursor: pointer; display: flex; align-items: center; gap: 0.8rem; border-bottom: 1px solid var(--border-color); transition: background-color 0.2s ease, color 0.2s ease; width: 100%; }
@@ -328,268 +323,101 @@ body {
 
 /* --- Game Area --- */
 .game-area {
-    flex-grow: 1;
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    align-items: center;
-    position: relative;
-    overflow: hidden;
-    padding: 1rem 0;
-    background-color: var(--bg-color);
-    /* background-image: url('images/game-background.png'); */ /* Optional */
-    background-size: cover;
-    background-position: center bottom;
-    background-repeat: no-repeat;
+    flex-grow: 1; display: flex; flex-direction: column; justify-content: center;
+    align-items: center; position: relative; overflow: hidden; padding: 1rem 0;
+    background-color: var(--bg-color); background-size: cover;
+    background-position: center bottom; background-repeat: no-repeat;
 }
 .multiplier-zone {
-    font-size: clamp(3rem, 10vw, 4.5rem); /* Responsive font size */
-    font-weight: 700;
-    color: var(--text-color);
-    margin-bottom: 0.2rem;
-    line-height: 1.1;
-    min-height: 1.1em; /* Prevent jump */
+    font-size: clamp(3rem, 10vw, 4.5rem); font-weight: 700; color: var(--text-color);
+    margin-bottom: 0.2rem; line-height: 1.1; min-height: 1.1em;
     transition: color 0.3s ease, transform 0.1s ease, text-shadow 0.3s ease;
-    text-shadow: 0 0 8px rgba(255, 235, 59, 0); /* Start with no shadow */
-    z-index: 2;
+    text-shadow: 0 0 8px rgba(255, 235, 59, 0); z-index: 2;
 }
 .multiplier-zone.running { color: var(--yellow); text-shadow: 0 0 12px rgba(255, 235, 59, 0.6); }
 .multiplier-zone.crashed { color: var(--red); text-shadow: 0 0 8px rgba(229, 57, 53, 0.5); }
 .multiplier-zone.cashed_out { color: var(--green); text-shadow: 0 0 8px rgba(76, 175, 80, 0.5); }
-
-.game-status-display {
-    font-size: 1rem;
-    color: var(--text-muted);
-    margin-top: 0.3rem;
-    min-height: 1.4em; /* Prevent layout jump */
-    font-weight: 500;
-    text-align: center;
-    z-index: 2;
-}
+.game-status-display { font-size: 1rem; color: var(--text-muted); margin-top: 0.3rem; min-height: 1.4em; font-weight: 500; text-align: center; z-index: 2; }
 
 /* Rocket Styles */
-.rocket-placeholder {
-    position: absolute;
-    bottom: -50px; /* Start off-screen */
-    left: 10%; /* Start from left */
-    transform: rotate(-30deg) scale(0.7); /* Initial angle */
-    font-size: 2.8rem; /* Adjust size */
-    transition: opacity 0.5s ease, transform 0.5s ease, bottom 0.1s linear, left 0.1s linear; /* Animate position too, maybe linear for smoothness */
-    opacity: 0;
-    will-change: bottom, left, transform, opacity; /* Performance hint */
-    text-shadow: 0 0 8px var(--primary-accent);
-    z-index: 1;
-}
-.rocket-placeholder.flying {
-    opacity: 1;
-    transform: rotate(15deg) scale(0.8); /* Flying angle */
-    /* Bottom and Left positions controlled by JS */
-}
-.rocket-placeholder.crashed {
-    opacity: 0 !important;
-    transform: rotate(60deg) scale(0.7); /* Crash angle */
-    transition: opacity 0.3s ease-out, transform 0.3s ease-out; /* Faster fade out */
-}
+.rocket-placeholder { position: absolute; bottom: -50px; left: 10%; transform: rotate(-30deg) scale(0.7); font-size: 2.8rem; transition: opacity 0.5s ease, transform 0.5s ease, bottom 0.1s linear, left 0.1s linear; opacity: 0; will-change: bottom, left, transform, opacity; text-shadow: 0 0 8px var(--primary-accent); z-index: 1; }
+.rocket-placeholder.flying { opacity: 1; transform: rotate(15deg) scale(0.8); }
+.rocket-placeholder.crashed { opacity: 0 !important; transform: rotate(60deg) scale(0.7); transition: opacity 0.3s ease-out, transform 0.3s ease-out; }
 
 /* --- Animated Clouds Background (Downwards Animation) --- */
 .clouds-background { position: absolute; top: 0; left: 0; width: 100%; height: 100%; overflow: hidden; z-index: 0; pointer-events: none; opacity: 0; transition: opacity 0.5s ease-in-out; }
 .clouds-background.clouds-active { opacity: 1; }
-.cloud { width: 60px; height: 20px; background: rgba(180, 180, 210, 0.12); border-radius: 10px; position: absolute; filter: blur(2px); animation-name: moveCloudDown; /* USE DOWNWARDS ANIMATION */ animation-timing-function: linear; animation-iteration-count: infinite; }
+.cloud { width: 60px; height: 20px; background: rgba(180, 180, 210, 0.12); border-radius: 10px; position: absolute; filter: blur(2px); animation-name: moveCloudDown; animation-timing-function: linear; animation-iteration-count: infinite; }
 .cloud::before, .cloud::after { content: ''; position: absolute; background: inherit; border-radius: 50%; filter: inherit; }
 .cloud::before { width: 30px; height: 30px; top: -12px; left: 8px; }
 .cloud::after { width: 35px; height: 35px; top: -15px; right: 5px; z-index: -1; }
+@keyframes moveCloudDown { 0% { transform: translateY(-200px) translateX(var(--start-x, 0)); opacity: 0; } 10% { opacity: var(--max-opacity, 0.6); } 90% { opacity: var(--max-opacity, 0.6); } 100% { transform: translateY(100vh) translateX(var(--start-x, 0)); opacity: 0; } }
+.cloud-1 { left: 15%; transform: scale(0.8); --max-opacity: 0.5; animation-duration: 25s; animation-delay: -5s; } .cloud-2 { left: 70%; transform: scale(1.1); --max-opacity: 0.7; animation-duration: 20s; animation-delay: -12s; } .cloud-3 { left: 40%; transform: scale(0.6); --max-opacity: 0.4; animation-duration: 30s; animation-delay: -2s; } .cloud-4 { left: 85%; transform: scale(0.9); --max-opacity: 0.6; animation-duration: 18s; animation-delay: -8s; } .cloud-5 { left: 5%; transform: scale(1.0); --max-opacity: 0.55; animation-duration: 22s; animation-delay: -15s; } .cloud-6 { left: 55%; transform: scale(0.75); --max-opacity: 0.45; animation-duration: 28s; animation-delay: -20s; } .cloud-7 { left: 25%; transform: scale(0.95); --max-opacity: 0.65; animation-duration: 19s; animation-delay: -3s; } .cloud-8 { left: 80%; transform: scale(0.7); --max-opacity: 0.4; animation-duration: 26s; animation-delay: -9s; } .cloud-9 { left: 50%; transform: scale(1.05); --max-opacity: 0.75; animation-duration: 17s; animation-delay: -1s; } .cloud-10 { left: 10%; transform: scale(0.85); --max-opacity: 0.5; animation-duration: 29s; animation-delay: -18s; } .cloud-11 { left: 65%; transform: scale(0.9); --max-opacity: 0.6; animation-duration: 21s; animation-delay: -6s; } .cloud-12 { left: 95%; transform: scale(0.7); --max-opacity: 0.45; animation-duration: 23s; animation-delay: -11s; }
 
-/* UPDATED Keyframes for downward movement */
-@keyframes moveCloudDown {
-    0% { transform: translateY(-200px) translateX(var(--start-x, 0)); opacity: 0; } /* Start above top */
-    10% { opacity: var(--max-opacity, 0.6); }
-    90% { opacity: var(--max-opacity, 0.6); }
-    100% { transform: translateY(100vh) translateX(var(--start-x, 0)); opacity: 0; } /* End below bottom */
-}
-
-/* Individual cloud variations */
-.cloud-1 { left: 15%; transform: scale(0.8); --max-opacity: 0.5; animation-duration: 25s; animation-delay: -5s; }
-.cloud-2 { left: 70%; transform: scale(1.1); --max-opacity: 0.7; animation-duration: 20s; animation-delay: -12s; }
-.cloud-3 { left: 40%; transform: scale(0.6); --max-opacity: 0.4; animation-duration: 30s; animation-delay: -2s; }
-.cloud-4 { left: 85%; transform: scale(0.9); --max-opacity: 0.6; animation-duration: 18s; animation-delay: -8s; }
-.cloud-5 { left: 5%; transform: scale(1.0); --max-opacity: 0.55; animation-duration: 22s; animation-delay: -15s; }
-.cloud-6 { left: 55%; transform: scale(0.75); --max-opacity: 0.45; animation-duration: 28s; animation-delay: -20s; }
-.cloud-7 { left: 25%; transform: scale(0.95); --max-opacity: 0.65; animation-duration: 19s; animation-delay: -3s; }
-.cloud-8 { left: 80%; transform: scale(0.7); --max-opacity: 0.4; animation-duration: 26s; animation-delay: -9s; }
-.cloud-9 { left: 50%; transform: scale(1.05); --max-opacity: 0.75; animation-duration: 17s; animation-delay: -1s; }
-.cloud-10 { left: 10%; transform: scale(0.85); --max-opacity: 0.5; animation-duration: 29s; animation-delay: -18s; }
-.cloud-11 { left: 65%; transform: scale(0.9); --max-opacity: 0.6; animation-duration: 21s; animation-delay: -6s; }
-.cloud-12 { left: 95%; transform: scale(0.7); --max-opacity: 0.45; animation-duration: 23s; animation-delay: -11s; }
-
-/* --- In-Game Notification Area (Added) --- */
-.game-notification {
-    padding: 0.6rem 1rem;
-    margin-bottom: 0.8rem; /* Space above controls area */
-    border-radius: 5px;
-    text-align: center;
-    font-size: 0.9rem;
-    font-weight: 500;
-    min-height: 1.3em; /* Prevent layout shifts */
-    line-height: 1.4;
-    display: none; /* Hidden by default */
-}
-.game-notification.show {
-    display: block;
-}
-.game-notification.error {
-    color: var(--red);
-    background-color: rgba(229, 57, 53, 0.1);
-    border: 1px solid rgba(229, 57, 53, 0.3);
-}
-.game-notification.success {
-    color: var(--green);
-    background-color: rgba(76, 175, 80, 0.1);
-    border: 1px solid rgba(76, 175, 80, 0.3);
-}
+/* --- In-Game Notification Area --- */
+.game-notification { padding: 0.6rem 1rem; margin-bottom: 0.8rem; border-radius: 5px; text-align: center; font-size: 0.9rem; font-weight: 500; min-height: 1.3em; line-height: 1.4; display: none; }
+.game-notification.show { display: block; }
+.game-notification.error { color: var(--red); background-color: rgba(229, 57, 53, 0.1); border: 1px solid rgba(229, 57, 53, 0.3); }
+.game-notification.success { color: var(--green); background-color: rgba(76, 175, 80, 0.1); border: 1px solid rgba(76, 175, 80, 0.3); }
 
 /* --- Controls Area --- */
-.controls-area {
-    padding-top: 0.8rem;
-    border-top: 1px solid var(--border-color);
-    flex-shrink: 0;
-    z-index: 5;
-    background: linear-gradient(to top, rgba(28, 16, 58, 0.7), transparent);
-    margin-top: auto; /* Push controls to bottom if game area isn't full height */
-}
-.bet-adjust {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    background-color: var(--input-bg);
-    border-radius: 25px;
-    padding: 0.5rem 0.6rem;
-    margin-bottom: 0.8rem;
-    box-shadow: inset 0 1px 3px rgba(0,0,0,0.25);
-}
-.bet-adjust-btn {
-    background-color: var(--primary-accent); color: var(--text-color); border: none;
-    width: 38px; height: 38px; border-radius: 50%;
-    font-size: 1.6rem; font-weight: bold; cursor: pointer;
-    line-height: 1; /* Use line-height 1 with flex */
-    transition: background-color 0.2s ease, transform 0.1s ease, opacity 0.2s ease;
-    flex-shrink: 0; display: flex; justify-content: center; align-items: center; /* Center text */
-}
+.controls-area { padding-top: 0.8rem; border-top: 1px solid var(--border-color); flex-shrink: 0; z-index: 5; background: linear-gradient(to top, rgba(28, 16, 58, 0.7), transparent); margin-top: auto; }
+.bet-adjust { display: flex; justify-content: space-between; align-items: center; background-color: var(--input-bg); border-radius: 25px; padding: 0.5rem 0.6rem; margin-bottom: 0.8rem; box-shadow: inset 0 1px 3px rgba(0,0,0,0.25); }
+.bet-adjust-btn { background-color: var(--primary-accent); color: var(--text-color); border: none; width: 38px; height: 38px; border-radius: 50%; font-size: 1.6rem; font-weight: bold; cursor: pointer; line-height: 1; transition: background-color 0.2s ease, transform 0.1s ease, opacity 0.2s ease; flex-shrink: 0; display: flex; justify-content: center; align-items: center; }
 .bet-adjust-btn:hover:not(:disabled) { background-color: var(--button-hover); }
 .bet-adjust-btn:active:not(:disabled) { transform: scale(0.95); box-shadow: var(--button-active-shadow); }
 .bet-adjust-btn:disabled { background-color: #555; color: #aaa; cursor: not-allowed; opacity: 0.7; }
-
-/* Bet Amount Display Area */
-.bet-amount-display {
-    flex-grow: 1; text-align: center; font-size: 1.3rem; font-weight: 600;
-    color: var(--text-color); margin: 0 0.5rem; display: inline-flex;
-    align-items: center; justify-content: center; min-height: 38px;
-}
+.bet-amount-display { flex-grow: 1; text-align: center; font-size: 1.3rem; font-weight: 600; color: var(--text-color); margin: 0 0.5rem; display: inline-flex; align-items: center; justify-content: center; min-height: 38px; }
 .bet-amount-display .currency { margin-right: 0.1em; }
-.bet-amount-display input[type=number] {
-    background: none; border: none; color: var(--text-color);
-    font-size: 1em; font-weight: inherit; text-align: center;
-    width: 80px; padding: 0.2rem 0; -moz-appearance: textfield;
-    transition: color 0.2s ease, border-color 0.2s ease;
-    outline: none; border-bottom: 1px solid transparent;
-}
-.bet-amount-display input[type=number]::-webkit-outer-spin-button,
-.bet-amount-display input[type=number]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.bet-amount-display input[type=number] { background: none; border: none; color: var(--text-color); font-size: 1em; font-weight: inherit; text-align: center; width: 80px; padding: 0.2rem 0; -moz-appearance: textfield; transition: color 0.2s ease, border-color 0.2s ease; outline: none; border-bottom: 1px solid transparent; }
+.bet-amount-display input[type=number]::-webkit-outer-spin-button, .bet-amount-display input[type=number]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
 .bet-amount-display input[type=number]:focus { border-bottom: 1px solid var(--secondary-accent); }
 .bet-amount-display input[type=number]:disabled { color: var(--text-muted); cursor: not-allowed; opacity: 0.7; border-bottom-color: transparent !important; }
-.bet-amount-display .currency.hidden,
-.bet-amount-display input[type=number].hidden { display: none; }
-.bet-amount-display .potential-win {
-    font-size: 1em; font-weight: inherit; color: var(--green);
-    padding: 0.2rem 0; display: inline-block;
-}
+.bet-amount-display .currency.hidden, .bet-amount-display input[type=number].hidden { display: none; }
+.bet-amount-display .potential-win { font-size: 1em; font-weight: inherit; color: var(--green); padding: 0.2rem 0; display: inline-block; }
 .bet-amount-display .potential-win.hidden { display: none; }
-
-.quick-bet {
-    display: grid; grid-template-columns: repeat(4, 1fr);
-    gap: 0.6rem; margin-bottom: 1rem;
-}
-.quick-bet-btn {
-    background-color: var(--input-bg); color: var(--text-muted); border: 1px solid var(--border-color);
-    padding: 0.6rem 0.3rem; border-radius: 6px; cursor: pointer; font-size: 0.85rem;
-    font-weight: 500; text-align: center;
-    transition: background-color 0.2s ease, color 0.2s ease, transform 0.1s ease, border-color 0.2s ease, opacity 0.2s ease;
-    white-space: nowrap;
-}
+.quick-bet { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.6rem; margin-bottom: 1rem; }
+.quick-bet-btn { background-color: var(--input-bg); color: var(--text-muted); border: 1px solid var(--border-color); padding: 0.6rem 0.3rem; border-radius: 6px; cursor: pointer; font-size: 0.85rem; font-weight: 500; text-align: center; transition: background-color 0.2s ease, color 0.2s ease, transform 0.1s ease, border-color 0.2s ease, opacity 0.2s ease; white-space: nowrap; }
 .quick-bet-btn:hover:not(:disabled) { background-color: var(--primary-accent); color: var(--text-color); border-color: var(--primary-accent); }
 .quick-bet-btn:active:not(:disabled) { transform: scale(0.96); box-shadow: var(--button-active-shadow); }
 .quick-bet-btn:disabled { background-color: #444; color: #888; border-color: #555; cursor: not-allowed; opacity: 0.7; }
-
-/* Main Action Button */
 .action-button-wrapper { margin-top: 0.5rem; }
-#mainActionButton {
-    width: 100%; padding: 0.9rem; font-size: 1.2rem; font-weight: bold;
-    border: none; border-radius: 8px; cursor: pointer;
-    transition: background-color 0.2s ease, color 0.2s ease, transform 0.1s ease, box-shadow 0.2s ease, opacity 0.2s ease;
-    color: var(--text-color); text-transform: uppercase; letter-spacing: 0.5px;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
-}
+#mainActionButton { width: 100%; padding: 0.9rem; font-size: 1.2rem; font-weight: bold; border: none; border-radius: 8px; cursor: pointer; transition: background-color 0.2s ease, color 0.2s ease, transform 0.1s ease, box-shadow 0.2s ease, opacity 0.2s ease; color: var(--text-color); text-transform: uppercase; letter-spacing: 0.5px; box-shadow: 0 2px 4px rgba(0,0,0,0.2); }
 #mainActionButton:active:not(:disabled) { transform: scale(0.98); box-shadow: var(--button-active-shadow); }
-#mainActionButton.state-idle { background-color: var(--green); }
-#mainActionButton.state-idle:hover:not(:disabled) { background-color: #5cb85c; }
+#mainActionButton.state-idle { background-color: var(--green); } #mainActionButton.state-idle:hover:not(:disabled) { background-color: #5cb85c; }
 #mainActionButton.state-waiting_start { background-color: var(--text-muted); color: #666; cursor: not-allowed; box-shadow: none; } /* Bet Placed / Preparing */
-#mainActionButton.state-running { background-color: var(--yellow); color: #333; }
-#mainActionButton.state-running:hover:not(:disabled) { background-color: #ffdd70; }
+#mainActionButton.state-running { background-color: var(--yellow); color: #333; } #mainActionButton.state-running:hover:not(:disabled) { background-color: #ffdd70; }
 #mainActionButton.state-cashed_out { background-color: var(--green); color: var(--text-color); cursor: not-allowed; box-shadow: none; }
 #mainActionButton.state-crashed { background-color: var(--red); color: var(--text-color); cursor: not-allowed; box-shadow: none; }
 #mainActionButton:disabled { background-color: #555 !important; color: #aaa !important; cursor: not-allowed; box-shadow: none !important; opacity: 0.7; }
 
 /* --- Authentication Styles --- */
-.auth-wrapper {
-    width: 100%; height: 100%; display: flex; justify-content: center; align-items: center;
-    background: linear-gradient(to bottom, var(--bg-color), var(--bg-secondary));
-    padding: 20px;
-}
-.auth-wrapper.hidden { display: none; } /* Simple hide for auth wrapper */
-
-.auth-box {
-    background-color: var(--bg-secondary); padding: 2rem 1.5rem; border-radius: 10px;
-    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3); width: 100%; max-width: 360px;
-    border: 1px solid var(--border-color);
-}
+.auth-wrapper { width: 100%; height: 100%; display: flex; justify-content: center; align-items: center; background: linear-gradient(to bottom, var(--bg-color), var(--bg-secondary)); padding: 20px; }
+.auth-wrapper.hidden { display: none !important; }
+.auth-box { background-color: var(--bg-secondary); padding: 2rem 1.5rem; border-radius: 10px; box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3); width: 100%; max-width: 360px; border: 1px solid var(--border-color); }
 .auth-box h2 { color: var(--primary-accent); text-align: center; margin-bottom: 1.5rem; font-weight: 500; }
 .input-group { margin-bottom: 1rem; }
 .input-group label { display: block; color: var(--text-muted); margin-bottom: 0.4rem; font-size: 0.9rem; }
 .input-group input[type="text"],
-.input-group input[type="password"] {
-    width: 100%; padding: 0.7rem 0.8rem; background-color: var(--input-bg);
-    border: 1px solid var(--border-color); border-radius: 6px; color: var(--text-color);
-    font-size: 1rem; transition: border-color 0.2s ease;
-}
+.input-group input[type="email"], /* Added style for email */
+.input-group input[type="password"] { width: 100%; padding: 0.7rem 0.8rem; background-color: var(--input-bg); border: 1px solid var(--border-color); border-radius: 6px; color: var(--text-color); font-size: 1rem; transition: border-color 0.2s ease; }
 .input-group input[type="text"]:focus,
+.input-group input[type="email"]:focus,
 .input-group input[type="password"]:focus { outline: none; border-color: var(--primary-accent); }
-
-.auth-box button[type="submit"] {
-    width: 100%; padding: 0.8rem; background-color: var(--button-bg); border: none;
-    border-radius: 6px; color: var(--text-color); font-size: 1rem; font-weight: 600;
-    cursor: pointer; transition: background-color 0.2s ease, transform 0.1s ease, opacity 0.2s ease;
-    margin-top: 0.5rem;
-}
+.auth-box button[type="submit"] { width: 100%; padding: 0.8rem; background-color: var(--button-bg); border: none; border-radius: 6px; color: var(--text-color); font-size: 1rem; font-weight: 600; cursor: pointer; transition: background-color 0.2s ease, transform 0.1s ease, opacity 0.2s ease; margin-top: 0.5rem; }
 .auth-box button[type="submit"]:hover:not(:disabled) { background-color: var(--button-hover); }
 .auth-box button[type="submit"]:active:not(:disabled) { transform: scale(0.98); }
 .auth-box button[type="submit"]:disabled { background-color: #555; cursor: not-allowed; opacity: 0.7; }
-
-/* Auth Error/Status Messages */
-.error-message {
-    color: var(--red); background-color: rgba(229, 57, 53, 0.1); border: 1px solid rgba(229, 57, 53, 0.3);
-    padding: 0.6rem 0.8rem; border-radius: 5px; margin-bottom: 1rem;
-    font-size: 0.85rem; text-align: center; display: none; line-height: 1.3;
-}
+.error-message { color: var(--red); background-color: rgba(229, 57, 53, 0.1); border: 1px solid rgba(229, 57, 53, 0.3); padding: 0.6rem 0.8rem; border-radius: 5px; margin-bottom: 1rem; font-size: 0.85rem; text-align: center; display: none; line-height: 1.3; }
 .error-message.show { display: block; }
-/* Added Style for Success Message in Login Area (used after registration) */
-.error-message.success-message {
-    color: var(--green);
-    background-color: rgba(76, 175, 80, 0.1);
-    border: 1px solid rgba(76, 175, 80, 0.3);
-}
-
+/* Style for Success Message (used in login error area) */
+.error-message.success-message { color: var(--green); background-color: rgba(76, 175, 80, 0.1); border: 1px solid rgba(76, 175, 80, 0.3); }
 .switch-form { text-align: center; margin-top: 1.5rem; font-size: 0.9rem; color: var(--text-muted); }
 .switch-form a { color: var(--secondary-accent); text-decoration: none; font-weight: 500; }
 .switch-form a:hover { text-decoration: underline; }
+.forgot-password { text-align: right; font-size: 0.8em; margin-top: -0.5rem; margin-bottom: 1rem; } /* Added style for forgot pwd link */
+.forgot-password a { color: var(--secondary-accent); text-decoration: none; }
+.forgot-password a:hover { text-decoration: underline; }
 
 /* Menu Divider & Logout Button */
 .menu-divider { border: none; height: 1px; background-color: var(--border-color); margin: 0.5rem 0; }

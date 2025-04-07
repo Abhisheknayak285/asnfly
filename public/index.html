@@ -20,6 +20,9 @@
                     <label for="loginPassword">Password</label>
                     <input type="password" id="loginPassword" name="password" required>
                 </div>
+                <p class="forgot-password" style="text-align: right; font-size: 0.8em; margin-top: -0.5rem; margin-bottom: 1rem;">
+                    <a href="#" id="forgotPasswordLink">Forgot Password?</a>
+                </p>
                 <button type="submit" id="loginButton">Login</button>
                 <p class="switch-form">Don't have an account? <a href="#" id="showRegister">Register here</a></p>
             </form>
@@ -30,8 +33,12 @@
                     <label for="registerUsername">Username</label>
                     <input type="text" id="registerUsername" name="username" required minlength="3">
                 </div>
+                 <div class="input-group">
+                    <label for="registerEmail">Email</label>
+                    <input type="email" id="registerEmail" name="email" required>
+                </div>
                 <div class="input-group">
-                    <label for="registerPassword">Password</label>
+                    <label for="registerPassword">Password (Min 6 chars)</label>
                     <input type="password" id="registerPassword" name="password" required minlength="6">
                 </div>
                  <div class="input-group">
@@ -42,9 +49,19 @@
                 <p class="switch-form">Already have an account? <a href="#" id="showLogin">Login here</a></p>
             </form>
         </div>
-    </div>
 
-    <div class="mobile-wrapper hidden" id="gameWrapper">
+        <div id="registrationSuccess" class="auth-box hidden" style="border-color: var(--green); text-align: center;">
+             <h2>Registration Successful!</h2>
+             <p style="margin-bottom: 10px;">Please save your **Recovery Code** below in a safe place.</p>
+             <p style="font-weight: bold; color: var(--red);">This is the ONLY way to reset your password if you forget it.</p>
+             <div style="font-size: 1.4em; font-weight: bold; color: var(--primary-accent); margin: 15px 0; padding: 12px; background-color: #f0f0f0; border-radius: 5px; text-align: center; letter-spacing: 3px; font-family: monospace; border: 1px dashed var(--primary-accent);">
+                 <span id="recoveryCodeDisplay">- - - - -</span>
+             </div>
+             <p style="font-size: 0.9em; color: var(--red); font-weight: bold; margin-bottom: 20px;">Warning: Treat this code like a password. Do not share it! We cannot recover it for you.</p>
+             <button id="proceedToLoginBtn" style="width: 100%; padding: 0.8rem;">Proceed to Login</button>
+        </div>
+
+    </div> <div class="mobile-wrapper hidden" id="gameWrapper">
         <div class="game-container">
 
             <div class="top-bar">
@@ -83,73 +100,28 @@
                     <button id="closeAutoButton" class="popup-close-btn">&times;</button>
                 </div>
                 <div class="auto-settings">
-                     <div class="auto-section">
-                         <label>
-                             <input type="checkbox" id="autoBetEnabled"> Auto Bet
-                         </label>
-                         <div>
-                             Base Bet: ₹<input type="number" id="autoBetAmount" value="1" step="1" min="1">
-                         </div>
-                       </div>
-                       <div class="auto-section">
-                           <label>
-                               <input type="checkbox" id="autoCashoutEnabled"> Auto Cash Out
-                           </label>
-                           <div>
-                               At Multiplier: <input type="number" id="autoCashoutMultiplier" value="2.00" step="0.01" min="1.01">x
-                           </div>
-                       </div>
-                       <p class="note">Note: Auto-play logic is basic in this demo.</p>
+                     <div class="auto-section"> <label> <input type="checkbox" id="autoBetEnabled"> Auto Bet </label> <div> Base Bet: ₹<input type="number" id="autoBetAmount" value="1" step="1" min="1"> </div> </div>
+                     <div class="auto-section"> <label> <input type="checkbox" id="autoCashoutEnabled"> Auto Cash Out </label> <div> At Multiplier: <input type="number" id="autoCashoutMultiplier" value="2.00" step="0.01" min="1.01">x </div> </div>
+                     <p class="note">Note: Auto-play logic is basic in this demo.</p>
                 </div>
             </div>
 
             <div id="walletPopup" class="popup hidden">
-                 <div class="popup-header">
-                     <h3>Wallet</h3>
-                     <button id="closeWalletButton" class="popup-close-btn">&times;</button>
-                 </div>
+                 <div class="popup-header"> <h3>Wallet</h3> <button id="closeWalletButton" class="popup-close-btn">&times;</button> </div>
                  <div class="wallet-content">
-                       <div class="wallet-toggle-container">
-                           <button id="showAddMoneyBtn" class="wallet-toggle-btn active">Add Money</button>
-                           <button id="showWithdrawMoneyBtn" class="wallet-toggle-btn">Withdraw Money</button>
-                       </div>
+                       <div class="wallet-toggle-container"> <button id="showAddMoneyBtn" class="wallet-toggle-btn active">Add Money</button> <button id="showWithdrawMoneyBtn" class="wallet-toggle-btn">Withdraw Money</button> </div>
                        <div class="wallet-section active" id="addMoneySection">
                            <h4>Add Money</h4>
-                           <div class="wallet-form-group">
-                               <label for="paymentMethod">Payment Method:</label>
-                               <select id="paymentMethod">
-                                   <option value="">-- Select Method --</option>
-                                   <option value="upi">UPI ID</option>
-                                   <option value="qr">QR Code</option>
-                               </select>
-                           </div>
-                           <div id="upiDetails" class="payment-details hidden">
-                               <p>Please pay using the UPI ID below:</p>
-                               <strong class="payment-info">yourcompany.pay@bankupi</strong>
-                               <p class="small-note">After payment, enter the Transaction ID below.</p>
-                           </div>
-                           <div id="qrCodeDetails" class="payment-details hidden">
-                               <p>Scan the QR Code using your UPI app:</p>
-                               <img src="images/placeholder-qr.png" alt="QR Code" class="qr-code-image payment-info">
-                               <p class="small-note">After payment, enter the Transaction ID below.</p>
-                           </div>
-                           <div id="transactionIdSection" class="wallet-form-group hidden">
-                               <label for="transactionIdInput">Transaction ID (Ref No.):</label>
-                               <input type="text" id="transactionIdInput" placeholder="Enter 12-digit UTR / Ref ID">
-                               <button id="submitDepositButton" class="wallet-btn" disabled>Confirm Deposit</button>
-                           </div>
+                           <div class="wallet-form-group"> <label for="paymentMethod">Payment Method:</label> <select id="paymentMethod"> <option value="">-- Select Method --</option> <option value="upi">UPI ID</option> <option value="qr">QR Code</option> </select> </div>
+                           <div id="upiDetails" class="payment-details hidden"> <p>Please pay using the UPI ID below:</p> <strong class="payment-info">yourcompany.pay@bankupi</strong> <p class="small-note">After payment, enter the Transaction ID below.</p> </div>
+                           <div id="qrCodeDetails" class="payment-details hidden"> <p>Scan the QR Code using your UPI app:</p> <img src="images/placeholder-qr.png" alt="QR Code" class="qr-code-image payment-info"> <p class="small-note">After payment, enter the Transaction ID below.</p> </div>
+                           <div id="transactionIdSection" class="wallet-form-group hidden"> <label for="transactionIdInput">Transaction ID (UTR No.):</label> <input type="text" id="transactionIdInput" placeholder="Enter 12-digit UTR / Ref ID"> <button id="submitDepositButton" class="wallet-btn" disabled>Confirm Deposit</button> </div>
                            <p id="depositStatus" class="wallet-status"></p>
                        </div>
                        <div class="wallet-section" id="withdrawMoneySection">
                            <h4>Withdraw Money</h4>
-                            <div class="wallet-form-group">
-                                <label for="withdrawAmountInput">Amount (₹):</label>
-                                <input type="number" id="withdrawAmountInput" placeholder="Min ₹100" step="1" min="100">
-                            </div>
-                           <div class="wallet-form-group">
-                               <label for="userUpiIdInput">Your UPI ID:</label>
-                               <input type="text" id="userUpiIdInput" placeholder="yourname@bankupi">
-                           </div>
+                            <div class="wallet-form-group"> <label for="withdrawAmountInput">Amount (₹):</label> <input type="number" id="withdrawAmountInput" placeholder="Min ₹100" step="1" min="100"> </div>
+                           <div class="wallet-form-group"> <label for="userUpiIdInput">Your UPI ID:</label> <input type="text" id="userUpiIdInput" placeholder="yourname@bankupi"> </div>
                            <button id="submitWithdrawalButton" class="wallet-btn">Request Withdrawal</button>
                            <p id="withdrawalStatus" class="wallet-status"></p>
                        </div>
@@ -157,41 +129,19 @@
              </div>
 
             <div class="game-area">
-                    <div class="clouds-background">
-                        <div class="cloud cloud-1"></div> <div class="cloud cloud-2"></div> <div class="cloud cloud-3"></div> <div class="cloud cloud-4"></div> <div class="cloud cloud-5"></div> <div class="cloud cloud-6"></div> <div class="cloud cloud-7"></div> <div class="cloud cloud-8"></div> <div class="cloud cloud-9"></div> <div class="cloud cloud-10"></div> <div class="cloud cloud-11"></div> <div class="cloud cloud-12"></div>
-                    </div>
-                    <div class="multiplier-zone">
-                        <span id="multiplier">---</span>
-                    </div>
-                    <div class="game-status-display" id="gameStatus">Connecting...</div>
+                    <div class="clouds-background"> <div class="cloud cloud-1"></div> <div class="cloud cloud-2"></div> <div class="cloud cloud-3"></div> <div class="cloud cloud-4"></div> <div class="cloud cloud-5"></div> <div class="cloud cloud-6"></div> <div class="cloud cloud-7"></div> <div class="cloud cloud-8"></div> <div class="cloud cloud-9"></div> <div class="cloud cloud-10"></div> <div class="cloud cloud-11"></div> <div class="cloud cloud-12"></div> </div>
+                    <div class="multiplier-zone"> <span id="multiplier">---</span> </div>
+                    <div class="game-status-display" id="gameStatus">Initializing...</div>
                     <div class="rocket-placeholder" id="rocket">🚀</div>
             </div>
 
-            <div id="gameNotification" class="game-notification">
-                </div>
+            <div id="gameNotification" class="game-notification"></div>
 
             <div class="controls-area">
-                  <div class="bet-adjust">
-                      <button id="decreaseBet" class="bet-adjust-btn">-</button>
-                      <span class="bet-amount-display">
-                          <span class="currency">₹</span>
-                          <input type="number" id="betAmount" value="1" min="1" step="1">
-                          <span id="potentialWinDisplay" class="potential-win hidden"></span>
-                      </span>
-                      <button id="increaseBet" class="bet-adjust-btn">+</button>
-                  </div>
-                  <div class="quick-bet">
-                     <button class="quick-bet-btn" data-set="1">₹1</button>
-                     <button class="quick-bet-btn" data-set="5">₹5</button>
-                     <button class="quick-bet-btn" data-set="10">₹10</button>
-                     <button class="quick-bet-btn" data-set="50">₹50</button>
-                  </div>
-                  <div class="action-button-wrapper">
-                      <button id="mainActionButton">Place Bet</button>
-                  </div>
+                  <div class="bet-adjust"> <button id="decreaseBet" class="bet-adjust-btn">-</button> <span class="bet-amount-display"> <span class="currency">₹</span> <input type="number" id="betAmount" value="1" min="1" step="1"> <span id="potentialWinDisplay" class="potential-win hidden"></span> </span> <button id="increaseBet" class="bet-adjust-btn">+</button> </div>
+                  <div class="quick-bet"> <button class="quick-bet-btn" data-set="1">₹1</button> <button class="quick-bet-btn" data-set="5">₹5</button> <button class="quick-bet-btn" data-set="10">₹10</button> <button class="quick-bet-btn" data-set="50">₹50</button> </div>
+                  <div class="action-button-wrapper"> <button id="mainActionButton">Place Bet</button> </div>
             </div>
 
-        </div> </div> <script src="/socket.io/socket.io.js"></script>
-    <script src="script.js"></script>
-</body>
+        </div> </div> <script src="/socket.io/socket.io.js"></script> <script src="script.js"></script> </body>
 </html>

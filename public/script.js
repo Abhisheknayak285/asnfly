@@ -130,9 +130,10 @@ document.addEventListener('DOMContentLoaded', () => {
         window.socket.on('balanceUpdate', (data) => { console.log("[Client DEBUG] Received 'balanceUpdate'. Data:", JSON.stringify(data)); if (balanceDisplay) { balanceDisplay.textContent = Math.floor(data.newBalance); } });
         // Listener for Manual Deposit Result
         window.socket.on('depositResult', (data) => { console.log("Received depositResult:", data); if (!depositStatus || !submitDepositButton || !transactionIdInput) return; depositStatus.textContent = data.message; if (data.success === true) { depositStatus.className = 'wallet-status success'; transactionIdInput.value = ''; transactionIdInput.disabled = false; submitDepositButton.disabled = true; if (paymentMethodSelect) paymentMethodSelect.value = ''; if (upiDetailsDiv) upiDetailsDiv.classList.add('hidden'); if (qrCodeDetailsDiv) qrCodeDetailsDiv.classList.add('hidden'); if (transactionIdSection) transactionIdSection.classList.add('hidden'); } else if (data.success === false) { depositStatus.className = 'wallet-status error'; submitDepositButton.disabled = false; transactionIdInput.disabled = false; } else if (data.pending === true) { depositStatus.className = 'wallet-status pending'; transactionIdInput.value = ''; transactionIdInput.disabled = false; submitDepositButton.disabled = true; if (paymentMethodSelect) paymentMethodSelect.value = ''; if (upiDetailsDiv) upiDetailsDiv.classList.add('hidden'); if (qrCodeDetailsDiv) qrCodeDetailsDiv.classList.add('hidden'); if (transactionIdSection) transactionIdSection.classList.add('hidden'); } });
-        // Listener for Withdrawal Result (Handles pending/success/error from server if implemented)
+        // Listener for Withdrawal Result
         window.socket.on('withdrawalResult', (data) => { console.log("Received withdrawalResult:", data); if (!withdrawalStatus || !submitWithdrawalButton || !withdrawAmountInput || !userUpiIdInput) return; withdrawalStatus.textContent = data.message; if (data.success === true || data.pending === true) { withdrawalStatus.className = data.success ? 'wallet-status success' : 'wallet-status pending'; withdrawAmountInput.value = ''; userUpiIdInput.value = ''; submitWithdrawalButton.disabled = (data.pending === true); withdrawAmountInput.disabled = false; userUpiIdInput.disabled = false; } else { withdrawalStatus.className = 'wallet-status error'; submitWithdrawalButton.disabled = false; withdrawAmountInput.disabled = false; userUpiIdInput.disabled = false; } });
-        // Admin result listener REMOVED as admin actions use HTTP API now
+        // Listener for forced disconnect (e.g., user blocked)
+        window.socket.on('forceDisconnect', (data) => { console.log(`Received forceDisconnect from server. Reason: ${data?.message}`); alert(`You have been disconnected: ${data?.message || 'Account status change.'}`); showAuthScreen(); });
 
     } // End of connectWebSocket
 
@@ -150,8 +151,8 @@ document.addEventListener('DOMContentLoaded', () => {
              submitWithdrawalButton.addEventListener('click', () => {
                  const amount = parseFloat(withdrawAmountInput.value); const upiId = userUpiIdInput.value.trim();
                  withdrawalStatus.textContent = ''; withdrawalStatus.className = 'wallet-status';
-                 if (isNaN(amount) || amount < 100) { showGameNotification('Minimum withdrawal is ₹100.', 'error'); return; } // Use notification
-                 if (!upiId || !upiId.includes('@')) { showGameNotification('Please enter a valid UPI ID.', 'error'); return; } // Use notification
+                 if (isNaN(amount) || amount < 100) { showGameNotification('Minimum withdrawal is ₹100.', 'error'); return; }
+                 if (!upiId || !upiId.includes('@') || upiId.length < 5) { showGameNotification('Please enter a valid UPI ID.', 'error'); return; }
                  if (!window.socket || !window.socket.connected) { showGameNotification("Not connected to server.", 'error'); return; }
 
                  withdrawalStatus.textContent = 'Submitting request...'; withdrawalStatus.className = 'wallet-status pending';
@@ -168,7 +169,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // Login Form
     if (loginForm) { loginForm.addEventListener('submit', async (event) => { event.preventDefault(); clearLoginError(); const username = loginUsernameInput.value; const password = loginPasswordInput.value; if (!username || !password) { displayLoginError("Username and password required."); return; } if(loginButton) loginButton.disabled = true; try { const response = await fetch('/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username, password }) }); const data = await response.json(); if (response.ok && data.status === 'success') { loggedInUsername = data.username; showGameScreen(); connectWebSocket(); } else { displayLoginError(data.message || 'Login failed.'); } } catch (error) { console.error("Login fetch error:", error); displayLoginError('Network error or server unavailable.'); } finally { if(loginButton) loginButton.disabled = false; } }); }
     // Registration Form
-    if (registerForm) { registerForm.addEventListener('submit', async (event) => { event.preventDefault(); clearRegisterError(); const username = registerUsernameInput.value; const password = registerPasswordInput.value; const confirmPassword = registerConfirmPasswordInput.value; if (password !== confirmPassword) { displayRegisterError('Passwords do not match.'); return; } if (!username || username.length < 3) { displayRegisterError('Username must be >= 3 chars.'); return; } if (!password || password.length < 6) { displayRegisterError('Password must be >= 6 chars.'); return; } if(registerButton) registerButton.disabled = true; try { const response = await fetch('/register', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username, password }) }); const data = await response.json(); if (response.ok && data.status === 'success') { console.log("Registration successful:", data.message); if (loginError) { loginError.textContent = data.message; loginError.classList.remove('show', 'success-message'); loginError.classList.add('show', 'success-message'); } if(registerForm) registerForm.classList.add('hidden'); if(loginForm) { loginForm.classList.remove('hidden'); loginForm.reset(); } if(registerForm) registerForm.reset(); } else { console.error("Registration failed:", data.message); displayRegisterError(data.message || 'Registration failed.'); } } catch (error) { console.error("Registration fetch error:", error); displayRegisterError('Network error or server unavailable.'); } finally { if(registerButton) registerButton.disabled = false; } }); }
+    if (registerForm) { registerForm.addEventListener('submit', async (event) => { event.preventDefault(); clearRegisterError(); const username = registerUsernameInput.value; const password = registerPasswordInput.value; const confirmPassword = registerConfirmPasswordInput.value; const email = registerEmailInput ? registerEmailInput.value : null; if (password !== confirmPassword) { displayRegisterError('Passwords do not match.'); return; } if (!username || username.length < 3) { displayRegisterError('Username must be >= 3 chars.'); return; } if (!password || password.length < 6) { displayRegisterError('Password must be >= 6 chars.'); return; } if (!email || !email.includes('@')) { displayRegisterError('Please enter a valid email.'); return; } if(registerButton) registerButton.disabled = true; try { const response = await fetch('/register', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username, password, email }) }); const data = await response.json(); if (response.ok && data.status === 'success') { console.log("Registration successful:", data.recoveryCode); if (loginError) { loginError.textContent = data.message || 'Registration successful! Please log in.'; loginError.classList.remove('show', 'success-message'); loginError.classList.add('show', 'success-message'); } /* Now also show recovery code if needed - Modify this part based on previous recovery code implementation */ if (data.recoveryCode) { console.warn("RECOVERY CODE (Save Securely!):", data.recoveryCode); /* TODO: Show recovery code to user securely */ } if(registerForm) registerForm.classList.add('hidden'); if(loginForm) { loginForm.classList.remove('hidden'); loginForm.reset(); } if(registerForm) registerForm.reset(); } else { console.error("Registration failed:", data.message); displayRegisterError(data.message || 'Registration failed.'); } } catch (error) { console.error("Registration fetch error:", error); displayRegisterError('Network error or server unavailable.'); } finally { if(registerButton) registerButton.disabled = false; } }); }
     // Switch between Login/Register links
     if (showRegisterLink) { showRegisterLink.addEventListener('click', (event) => { event.preventDefault(); clearLoginError(); if(loginForm) loginForm.classList.add('hidden'); if(registerForm) registerForm.classList.remove('hidden'); }); }
     if (showLoginLink) { showLoginLink.addEventListener('click', (event) => { event.preventDefault(); clearRegisterError(); if(registerForm) registerForm.classList.add('hidden'); if(loginForm) loginForm.classList.remove('hidden'); }); }
@@ -189,12 +190,27 @@ document.addEventListener('DOMContentLoaded', () => {
     if (menuAutoBtn) { menuAutoBtn.addEventListener('click', () => { closePopup(mainMenuPopup); openPopup(autoPopup); /* Add setupAutoPlay() if needed */ }); }
     if (closeAutoButton) { closeAutoButton.addEventListener('click', () => closePopup(autoPopup)); }
     if (menuSoundBtn) { menuSoundBtn.addEventListener('click', toggleSound); updateSoundIcon(); /* Set initial icon state */ }
-    if (logoutButton) { // Updated Logout with fetch
+    // Updated Logout Button
+    if (logoutButton) {
          logoutButton.addEventListener('click', async () => {
              console.log("Logout clicked");
-             try { await fetch('/logout', { method: 'POST' }); } // Tell server to destroy session
-             catch(err) { console.error("Error during fetch /logout:", err); }
-             finally { showAuthScreen(); } // Always switch UI
+             // Close menu immediately for better UX
+             closePopup(mainMenuPopup);
+             try {
+                 // Tell server to destroy session
+                 const response = await fetch('/logout', { method: 'POST' });
+                 const data = await response.json();
+                 if(response.ok && data.status === 'success'){
+                    console.log("Server session destroyed.");
+                 } else {
+                    console.warn("Logout fetch failed or server returned error:", data?.message);
+                 }
+             } catch(err) {
+                 console.error("Error during fetch /logout:", err);
+             } finally {
+                 // Always switch UI back to auth screen regardless of server response
+                 showAuthScreen();
+             }
          });
      }
 
