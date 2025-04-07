@@ -16,13 +16,17 @@
         th { background-color: #f7f7f7; font-weight: 600; color: #555; }
         tbody tr:nth-child(even) { background-color: #f9f9f9; }
         tbody tr:hover { background-color: #f1f1f1; }
-        button.admin-action { padding: 4px 8px; font-size: 0.85em; cursor: pointer; margin-right: 6px; border-radius: 4px; border: 1px solid transparent; color: white; min-width: 60px; text-align: center; transition: opacity 0.2s ease; }
+        button.admin-action { padding: 4px 8px; font-size: 0.85em; cursor: pointer; margin-right: 6px; margin-bottom: 4px; /* Added margin-bottom */ border-radius: 4px; border: 1px solid transparent; color: white; min-width: 60px; text-align: center; transition: opacity 0.2s ease; }
         button.approve { background-color: #28a745; border-color: #218838;}
         button.approve:hover { background-color: #218838;}
         button.reject, button.block { background-color: #dc3545; border-color: #c82333;}
         button.reject:hover, button.block:hover { background-color: #c82333;}
         button.unblock { background-color: #17a2b8; border-color: #138496;} /* Info color */
         button.unblock:hover { background-color: #117a8b;}
+        /* --- New Style for Remove Button --- */
+        button.remove { background-color: #6c757d; border-color: #5a6268;} /* Secondary/Gray color */
+        button.remove:hover { background-color: #545b62;}
+        /* --- End New Style --- */
         button:disabled { background-color: #ccc; border-color: #bbb; color: #eee; cursor: not-allowed; opacity: 0.7;}
         .status-pending { font-weight: bold; color: #ffc107; /* Yellow */ }
         .status-completed { color: #28a745; /* Green */ }
@@ -61,8 +65,14 @@
         .withdrawal-table th:nth-child(4), .withdrawal-table td:nth-child(4) { width: 25%; } /* UPI */
         .withdrawal-table th:nth-child(7), .withdrawal-table td:nth-child(7) { width: 15%; text-align: center; } /* Actions */
 
-        .users-table th:nth-child(1), .users-table td:nth-child(1) { width: 25%; } /* Username */
-        .users-table th:nth-child(5), .users-table td:nth-child(5) { width: 15%; text-align: center; } /* Actions */
+        /* --- Adjusted User Table Widths --- */
+        .users-table th:nth-child(1), .users-table td:nth-child(1) { width: 18%; } /* Username */
+        .users-table th:nth-child(2), .users-table td:nth-child(2) { width: 22%; } /* Email - New Column */
+        .users-table th:nth-child(3), .users-table td:nth-child(3) { width: 10%; } /* Balance */
+        .users-table th:nth-child(4), .users-table td:nth-child(4) { width: 10%; } /* Status */
+        .users-table th:nth-child(5), .users-table td:nth-child(5) { width: 18%; } /* Registered At */
+        .users-table th:nth-child(6), .users-table td:nth-child(6) { width: 22%; text-align: center; } /* Actions */
+        /* --- End Adjusted User Table Widths --- */
 
         .history-table th:nth-child(1), .history-table td:nth-child(1) { width: 6%; } /* Req ID */
         .history-table th:nth-child(2), .history-table td:nth-child(2) { width: 8%; } /* Type */
@@ -110,21 +120,27 @@
             <div id="adminUserMessage" class="admin-message"></div>
             <button id="refreshUsers" class="refresh-button">Refresh Users</button>
             <div class="loading" id="loadingUsersIndicator">Loading...</div>
-             <table class="users-table">
-                 <thead> <tr><th>Username</th><th>Balance (₹)</th><th>Status</th><th>Registered At</th><th>Actions</th></tr> </thead>
-                 <tbody id="usersTableBody"></tbody>
-             </table>
+              <table class="users-table">
+                  <thead>
+                      <tr>
+                          <th>Username</th>
+                          <th>Email</th> <th>Balance (₹)</th>
+                          <th>Status</th>
+                          <th>Registered At</th>
+                          <th>Actions</th> </tr>
+                  </thead>
+                  <tbody id="usersTableBody"></tbody>
+              </table>
         </div>
-
         <div id="viewHistory" class="admin-view">
             <h2>Transaction Log (Latest 50 Processed)</h2>
             <div id="adminHistoryMessage" class="admin-message"></div>
             <button id="refreshHistory" class="refresh-button">Refresh History</button>
             <div class="loading" id="loadingHistoryIndicator">Loading...</div>
-             <table class="history-table">
-                 <thead> <tr><th>Req ID</th><th>Type</th><th>Username</th><th>Details</th><th>Amount (₹)</th><th>Status</th><th>Requested At</th><th>Processed At</th><th>Processed By</th></tr> </thead>
-                 <tbody id="historyTableBody"></tbody>
-             </table>
+              <table class="history-table">
+                  <thead> <tr><th>Req ID</th><th>Type</th><th>Username</th><th>Details</th><th>Amount (₹)</th><th>Status</th><th>Requested At</th><th>Processed At</th><th>Processed By</th></tr> </thead>
+                  <tbody id="historyTableBody"></tbody>
+              </table>
         </div>
 
     </div> <script src="admin.js"></script>
