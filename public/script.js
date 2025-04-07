@@ -1,13 +1,14 @@
-// public/script.js - Client for Game Interface (FIXED registerEmailInput)
+// public/script.js - Client for Game Interface (Handles Recovery Code Display)
 
 document.addEventListener('DOMContentLoaded', () => {
-    console.log("Full Multiplayer crash game client script loaded.");
+    console.log("Main game client script loaded (Recovery Code Version).");
     // --- Current Time Context ---
     const now = new Date();
     console.log("Current time:", now.toLocaleString("en-IN", { timeZone: "Asia/Kolkata" }), "(IST)");
     console.log("Current Date:", now.toLocaleDateString("en-CA")); // YYYY-MM-DD format
 
     // --- Get DOM Elements ---
+    // Auth & Registration Success
     const authContainer = document.getElementById('authContainer');
     const gameWrapper = document.getElementById('gameWrapper');
     const loginForm = document.getElementById('loginForm');
@@ -17,15 +18,15 @@ document.addEventListener('DOMContentLoaded', () => {
     const registerUsernameInput = document.getElementById('registerUsername');
     const registerPasswordInput = document.getElementById('registerPassword');
     const registerConfirmPasswordInput = document.getElementById('registerConfirmPassword');
-    const registerEmailInput = document.getElementById('registerEmail'); // *** THE MISSING SELECTION ***
+    const registerEmailInput = document.getElementById('registerEmail');
     const loginError = document.getElementById('loginError');
     const registerError = document.getElementById('registerError');
     const loginButton = document.getElementById('loginButton');
     const registerButton = document.getElementById('registerButton');
     const showRegisterLink = document.getElementById('showRegister');
     const showLoginLink = document.getElementById('showLogin');
-    const forgotPasswordLink = document.getElementById('forgotPasswordLink'); // Added for potential future use
-    const registrationSuccessDiv = document.getElementById('registrationSuccess'); // For showing recovery code
+    const forgotPasswordLink = document.getElementById('forgotPasswordLink');
+    const registrationSuccessDiv = document.getElementById('registrationSuccess');
     const recoveryCodeDisplay = document.getElementById('recoveryCodeDisplay');
     const proceedToLoginBtn = document.getElementById('proceedToLoginBtn');
     // Game elements
@@ -101,8 +102,8 @@ document.addEventListener('DOMContentLoaded', () => {
     function showGameNotification(message, type = 'error', duration = 3000) { if (!gameNotification) return; if (notificationTimeout) { clearTimeout(notificationTimeout); } gameNotification.textContent = message; gameNotification.className = 'game-notification'; if (type) { gameNotification.classList.add(type); } gameNotification.classList.add('show'); notificationTimeout = setTimeout(() => { gameNotification.classList.remove('show'); }, duration); }
 
     // --- Show/Hide Auth vs Game ---
-    function showGameScreen() { if (!authContainer || !gameWrapper) return; console.log("Showing game screen..."); authContainer.classList.add('hidden'); if(registrationSuccessDiv) registrationSuccessDiv.classList.add('hidden'); gameWrapper.classList.remove('hidden'); if(gameStatusDisplay) gameStatusDisplay.textContent = "Connecting..."; if(multiplierDisplay) multiplierDisplay.textContent = "---"; if(balanceDisplay) balanceDisplay.textContent = "..."; if(playerCountDisplay) playerCountDisplay.textContent = "-"; if(mainHistoryDisplay) mainHistoryDisplay.innerHTML = ''; closeAllPopups(); }
-    function showAuthScreen() { if (!authContainer || !gameWrapper) return; console.log("Showing auth screen..."); if(window.socket) { window.socket.disconnect(); window.socket = null; } loggedInUsername = null; authContainer.classList.remove('hidden'); gameWrapper.classList.add('hidden'); if(registrationSuccessDiv) registrationSuccessDiv.classList.add('hidden'); // Hide success msg too clearLoginError(); clearRegisterError(); if(loginForm) loginForm.reset(); if(registerForm) registerForm.reset(); if(loginForm) loginForm.classList.remove('hidden'); // Ensure login form is visible on logout/return closeAllPopups(); }
+    function showGameScreen() { if (!authContainer || !gameWrapper) return; console.log("Showing game screen..."); if(authContainer) authContainer.classList.add('hidden'); if(registrationSuccessDiv) registrationSuccessDiv.classList.add('hidden'); if(gameWrapper) gameWrapper.classList.remove('hidden'); if(gameStatusDisplay) gameStatusDisplay.textContent = "Connecting..."; if(multiplierDisplay) multiplierDisplay.textContent = "---"; if(balanceDisplay) balanceDisplay.textContent = "..."; if(playerCountDisplay) playerCountDisplay.textContent = "-"; if(mainHistoryDisplay) mainHistoryDisplay.innerHTML = ''; closeAllPopups(); }
+    function showAuthScreen() { if (!authContainer || !gameWrapper) return; console.log("Showing auth screen..."); if(window.socket) { window.socket.disconnect(); window.socket = null; } loggedInUsername = null; if(authContainer) authContainer.classList.remove('hidden'); if(gameWrapper) gameWrapper.classList.add('hidden'); if(registrationSuccessDiv) registrationSuccessDiv.classList.add('hidden'); clearLoginError(); clearRegisterError(); if(loginForm) loginForm.reset(); if(registerForm) registerForm.reset(); if(loginForm) loginForm.classList.remove('hidden'); // Ensure login form is visible on logout/return closeAllPopups(); }
 
     // --- WebSocket Connection ---
     function connectWebSocket() {
@@ -126,9 +127,8 @@ document.addEventListener('DOMContentLoaded', () => {
         window.socket.on('depositResult', (data) => { console.log("Received depositResult:", data); if (!depositStatus || !submitDepositButton || !transactionIdInput) return; depositStatus.textContent = data.message; if (data.success === true) { depositStatus.className = 'wallet-status success'; transactionIdInput.value = ''; transactionIdInput.disabled = false; submitDepositButton.disabled = true; if (paymentMethodSelect) paymentMethodSelect.value = ''; if (upiDetailsDiv) upiDetailsDiv.classList.add('hidden'); if (qrCodeDetailsDiv) qrCodeDetailsDiv.classList.add('hidden'); if (transactionIdSection) transactionIdSection.classList.add('hidden'); } else if (data.success === false) { depositStatus.className = 'wallet-status error'; submitDepositButton.disabled = false; transactionIdInput.disabled = false; } else if (data.pending === true) { depositStatus.className = 'wallet-status pending'; transactionIdInput.value = ''; transactionIdInput.disabled = false; submitDepositButton.disabled = true; if (paymentMethodSelect) paymentMethodSelect.value = ''; if (upiDetailsDiv) upiDetailsDiv.classList.add('hidden'); if (qrCodeDetailsDiv) qrCodeDetailsDiv.classList.add('hidden'); if (transactionIdSection) transactionIdSection.classList.add('hidden'); } });
         // Listener for Withdrawal Result
         window.socket.on('withdrawalResult', (data) => { console.log("Received withdrawalResult:", data); if (!withdrawalStatus || !submitWithdrawalButton || !withdrawAmountInput || !userUpiIdInput) return; withdrawalStatus.textContent = data.message; if (data.success === true || data.pending === true) { withdrawalStatus.className = data.success ? 'wallet-status success' : 'wallet-status pending'; withdrawAmountInput.value = ''; userUpiIdInput.value = ''; submitWithdrawalButton.disabled = (data.pending === true); withdrawAmountInput.disabled = false; userUpiIdInput.disabled = false; } else { withdrawalStatus.className = 'wallet-status error'; submitWithdrawalButton.disabled = false; withdrawAmountInput.disabled = false; userUpiIdInput.disabled = false; } });
-         // Listener for forced disconnect (e.g., user blocked)
+        // Listener for forced disconnect
         window.socket.on('forceDisconnect', (data) => { console.log(`Received forceDisconnect from server. Reason: ${data?.message}`); alert(`You have been disconnected: ${data?.message || 'Account status change.'}`); showAuthScreen(); });
-
 
     } // End of connectWebSocket
 
@@ -149,10 +149,8 @@ document.addEventListener('DOMContentLoaded', () => {
                  if (isNaN(amount) || amount < 100) { showGameNotification('Minimum withdrawal is ₹100.', 'error'); return; }
                  if (!upiId || !upiId.includes('@') || upiId.length < 5) { showGameNotification('Please enter a valid UPI ID.', 'error'); return; }
                  if (!window.socket || !window.socket.connected) { showGameNotification("Not connected to server.", 'error'); return; }
-
                  withdrawalStatus.textContent = 'Submitting request...'; withdrawalStatus.className = 'wallet-status pending';
                  submitWithdrawalButton.disabled = true; withdrawAmountInput.disabled = true; userUpiIdInput.disabled = true;
-
                  console.log(`Client sending 'submitWithdrawalRequest' amount: ${amount}, upi: ${upiId}`);
                  window.socket.emit('submitWithdrawalRequest', { amount: amount, upiId: upiId });
              });
@@ -163,7 +161,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // Login Form
     if (loginForm) { loginForm.addEventListener('submit', async (event) => { event.preventDefault(); clearLoginError(); const username = loginUsernameInput.value; const password = loginPasswordInput.value; if (!username || !password) { displayLoginError("Username and password required."); return; } if(loginButton) loginButton.disabled = true; try { const response = await fetch('/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username, password }) }); const data = await response.json(); if (response.ok && data.status === 'success') { loggedInUsername = data.username; showGameScreen(); connectWebSocket(); } else { displayLoginError(data.message || 'Login failed.'); } } catch (error) { console.error("Login fetch error:", error); displayLoginError('Network error or server unavailable.'); } finally { if(loginButton) loginButton.disabled = false; } }); }
     // Registration Form
-    if (registerForm) { registerForm.addEventListener('submit', async (event) => { event.preventDefault(); clearRegisterError(); const username = registerUsernameInput.value; const password = registerPasswordInput.value; const confirmPassword = registerConfirmPasswordInput.value; const email = registerEmailInput ? registerEmailInput.value : null; if (password !== confirmPassword) { displayRegisterError('Passwords do not match.'); return; } if (!username || username.length < 3) { displayRegisterError('Username must be >= 3 chars.'); return; } if (!password || password.length < 6) { displayRegisterError('Password must be >= 6 chars.'); return; } if (!email || !email.includes('@')) { displayRegisterError('Please enter a valid email.'); return; } if(registerButton) registerButton.disabled = true; try { const response = await fetch('/register', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username, password, email }) }); const data = await response.json(); if (response.ok && data.status === 'success') { console.log("Registration successful:", data.recoveryCode); /* --- Show Recovery Code Div --- */ if (registerForm) registerForm.reset(); if (authContainer) authContainer.classList.add('hidden'); if (registrationSuccessDiv && recoveryCodeDisplay) { recoveryCodeDisplay.textContent = data.recoveryCode || 'ERROR: Ask Admin'; registrationSuccessDiv.classList.remove('hidden'); } else { alert(`Registration Successful! IMPORTANT: Your Recovery Code is: ${data.recoveryCode}\n\nSave this code securely! It is the ONLY way to reset your password.`); if(registerForm) registerForm.classList.add('hidden'); if(loginForm) { loginForm.classList.remove('hidden'); loginForm.reset(); } } /* --- End Recovery Code Display --- */ } else { console.error("Registration failed:", data.message); displayRegisterError(data.message || 'Registration failed.'); } } catch (error) { console.error("Registration fetch error:", error); displayRegisterError('Network error or server unavailable.'); } finally { if(registerButton) registerButton.disabled = false; } }); }
+    if (registerForm) { registerForm.addEventListener('submit', async (event) => { event.preventDefault(); clearRegisterError(); const username = registerUsernameInput.value; const password = registerPasswordInput.value; const confirmPassword = registerConfirmPasswordInput.value; const email = registerEmailInput ? registerEmailInput.value : null; if (password !== confirmPassword) { displayRegisterError('Passwords do not match.'); return; } if (!username || username.length < 3) { displayRegisterError('Username must be >= 3 chars.'); return; } if (!password || password.length < 6) { displayRegisterError('Password must be >= 6 chars.'); return; } if (!email || !email.includes('@')) { displayRegisterError('Please enter a valid email.'); return; } if(registerButton) registerButton.disabled = true; try { const response = await fetch('/register', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username, password, email }) }); const data = await response.json(); if (response.ok && data.status === 'success') { console.log("Registration successful:", data.recoveryCode); /* --- Show Recovery Code Div --- */ if (registerForm) registerForm.reset(); if (authContainer) authContainer.classList.add('hidden'); if (registrationSuccessDiv && recoveryCodeDisplay) { recoveryCodeDisplay.textContent = data.recoveryCode || 'ERROR: CODE MISSING'; registrationSuccessDiv.classList.remove('hidden'); } else { alert(`Registration Successful!\n\nIMPORTANT: Your Recovery Code is: ${data.recoveryCode || 'ERROR'}\n\nSave this code securely! It is the ONLY way to reset your password.`); if(registerForm) registerForm.classList.add('hidden'); if(loginForm) { loginForm.classList.remove('hidden'); loginForm.reset(); } } /* --- End Recovery Code Display --- */ } else { console.error("Registration failed:", data.message); displayRegisterError(data.message || 'Registration failed.'); } } catch (error) { console.error("Registration fetch error:", error); displayRegisterError('Network error or server unavailable.'); } finally { if(registerButton) registerButton.disabled = false; } }); }
     // Switch between Login/Register links
     if (showRegisterLink) { showRegisterLink.addEventListener('click', (event) => { event.preventDefault(); clearLoginError(); if(loginForm) loginForm.classList.add('hidden'); if(registerForm) registerForm.classList.remove('hidden'); }); }
     if (showLoginLink) { showLoginLink.addEventListener('click', (event) => { event.preventDefault(); clearRegisterError(); if(registerForm) registerForm.classList.add('hidden'); if(loginForm) loginForm.classList.remove('hidden'); }); }
