@@ -1,155 +1,204 @@
-// public/admin.js - Logic for the Admin Page
+// public/admin.js - Logic for the Admin Page Interface
 
 document.addEventListener('DOMContentLoaded', () => {
-    const tableBody = document.getElementById('requestsTableBody');
-    const loadingIndicator = document.getElementById('loadingIndicator');
-    const adminMessage = document.getElementById('adminMessage');
-    const refreshButton = document.getElementById('refreshRequests');
+    console.log("Admin script loaded.");
 
-    if (!tableBody || !loadingIndicator || !adminMessage || !refreshButton) {
-        console.error("Admin page HTML elements not found!");
+    // --- Get DOM Elements ---
+    const depositTableBody = document.getElementById('depositRequestsTableBody');
+    const loadingDepositIndicator = document.getElementById('loadingDepositIndicator');
+    const adminDepositMessage = document.getElementById('adminDepositMessage');
+    const refreshDepositsButton = document.getElementById('refreshDeposits');
+
+    const withdrawalTableBody = document.getElementById('withdrawalRequestsTableBody');
+    const loadingWithdrawalIndicator = document.getElementById('loadingWithdrawalIndicator');
+    const adminWithdrawalMessage = document.getElementById('adminWithdrawalMessage');
+    const refreshWithdrawalsButton = document.getElementById('refreshWithdrawals');
+
+    // Basic check if elements exist
+    if (!depositTableBody || !loadingDepositIndicator || !adminDepositMessage || !refreshDepositsButton ||
+        !withdrawalTableBody || !loadingWithdrawalIndicator || !adminWithdrawalMessage || !refreshWithdrawalsButton) {
+        console.error("Admin page HTML elements not found! Check IDs.");
+        alert("Error: Admin page elements missing. Check console.");
         return;
     }
 
-    // --- Functions ---
-
-    function showLoading(show) {
-        loadingIndicator.style.display = show ? 'block' : 'none';
+    // --- Helper Functions ---
+    function showLoading(indicatorElement, show) {
+        if (indicatorElement) indicatorElement.style.display = show ? 'block' : 'none';
     }
 
-    function showAdminMessage(message, isError = false) {
-        adminMessage.textContent = message;
-        adminMessage.style.color = isError ? 'red' : 'green';
-        setTimeout(() => { adminMessage.textContent = ''; }, 5000); // Hide after 5 seconds
+    function showAdminMessage(messageElement, message, isError = false, duration = 5000) {
+         if(!messageElement) return;
+         messageElement.textContent = message;
+         messageElement.className = 'admin-message'; // Reset classes
+         messageElement.classList.add(isError ? 'error' : 'success', 'show');
+         setTimeout(() => { if(messageElement) messageElement.classList.remove('show'); }, duration);
     }
 
-    async function fetchPendingRequests() {
-        showLoading(true);
-        tableBody.innerHTML = ''; // Clear table
-        adminMessage.textContent = ''; // Clear previous messages
+    // --- Deposit Request Functions ---
+    async function fetchPendingDeposits() {
+        showLoading(loadingDepositIndicator, true);
+        if (depositTableBody) depositTableBody.innerHTML = '';
+        if (adminDepositMessage) adminDepositMessage.textContent = '';
         try {
-            const response = await fetch('/api/admin/pending-deposits'); // Call server API
+            const response = await fetch('/api/admin/pending-deposits');
             if (!response.ok) {
-                if (response.status === 403) {
-                     throw new Error('Forbidden - Are you logged in as admin?');
-                }
-                throw new Error(`HTTP error! status: ${response.status}`);
+                if (response.status === 403) throw new Error('Forbidden - Not logged in as admin?');
+                throw new Error(`HTTP error! Status: ${response.status}`);
             }
             const requests = await response.json();
-            displayRequests(requests);
+            displayDepositRequests(requests);
         } catch (error) {
-            console.error("Error fetching pending requests:", error);
-            showAdminMessage(`Error loading requests: ${error.message}`, true);
+            console.error("Error fetching pending deposits:", error);
+            showAdminMessage(adminDepositMessage, `Error loading deposits: ${error.message}`, true);
         } finally {
-            showLoading(false);
+            showLoading(loadingDepositIndicator, false);
         }
     }
 
-    function displayRequests(requests) {
+    function displayDepositRequests(requests) {
+        if (!depositTableBody) return;
         if (requests.length === 0) {
-            tableBody.innerHTML = '<tr><td colspan="6" style="text-align: center;">No pending requests found.</td></tr>';
+            depositTableBody.innerHTML = '<tr><td colspan="6" style="text-align: center;">No pending deposit requests.</td></tr>';
             return;
         }
-
         requests.forEach(req => {
-            const row = tableBody.insertRow();
+            const row = depositTableBody.insertRow();
             row.insertCell().textContent = req.id;
             row.insertCell().textContent = req.username;
             row.insertCell().textContent = req.transaction_id;
             row.insertCell().textContent = new Date(req.requested_at).toLocaleString();
             const statusCell = row.insertCell();
             statusCell.textContent = req.status;
-            statusCell.classList.add(`status-${req.status}`); // Add class for styling
+            statusCell.classList.add(`status-${req.status}`); // status-pending, status-completed etc
 
-            // Actions Cell
             const actionCell = row.insertCell();
             if (req.status === 'pending') {
                 const approveButton = document.createElement('button');
                 approveButton.textContent = 'Approve';
                 approveButton.classList.add('admin-action', 'approve');
-                approveButton.onclick = () => handleApprove(req.id, approveButton); // Pass button to disable
+                approveButton.onclick = () => handleDepositApprove(req.id, approveButton);
                 actionCell.appendChild(approveButton);
 
                 const rejectButton = document.createElement('button');
                 rejectButton.textContent = 'Reject';
                 rejectButton.classList.add('admin-action', 'reject');
-                 rejectButton.onclick = () => handleReject(req.id, rejectButton); // Pass button to disable
+                rejectButton.onclick = () => handleDepositReject(req.id, rejectButton);
                 actionCell.appendChild(rejectButton);
-            } else {
-                actionCell.textContent = '-'; // No actions if not pending
-            }
+            } else { actionCell.textContent = '-'; }
         });
     }
 
-    async function handleApprove(requestId, button) {
-        // Ask admin for the verified amount
-        const amountString = prompt(`You are approving Request ID: ${requestId}\nPlease enter the EXACT amount you verified was received:`);
-        if (amountString === null) return; // User cancelled prompt
-
+    async function handleDepositApprove(requestId, button) {
+        const amountString = prompt(`Approve Deposit ID: ${requestId}\nEnter EXACT amount verified:`);
+        if (amountString === null) return; // User cancelled
         const verifiedAmount = parseFloat(amountString);
-        if (isNaN(verifiedAmount) || verifiedAmount <= 0) {
-            alert("Invalid amount entered. Please enter a positive number.");
-            return;
-        }
+        if (isNaN(verifiedAmount) || verifiedAmount <= 0) { alert("Invalid amount."); return; }
 
-        button.disabled = true; // Disable button during processing
-        button.textContent = 'Processing...';
-
+        button.disabled = true; button.textContent = '...';
         try {
             const response = await fetch('/api/admin/approve-deposit', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ requestId: requestId, verifiedAmount: verifiedAmount })
             });
             const result = await response.json();
-
             if (response.ok && result.status === 'success') {
-                showAdminMessage(`Request ${requestId} approved successfully. Balance updated.`);
-                fetchPendingRequests(); // Refresh the list
-            } else {
-                throw new Error(result.message || 'Approval failed.');
-            }
-        } catch (error) {
-            console.error(`Error approving request ${requestId}:`, error);
-            showAdminMessage(`Error approving request ${requestId}: ${error.message}`, true);
-            button.disabled = false; // Re-enable button on error
-             button.textContent = 'Approve';
-        }
+                showAdminMessage(adminDepositMessage, `Request ${requestId} approved.`);
+                fetchPendingDeposits(); // Refresh list
+            } else { throw new Error(result.message || 'Approval failed.'); }
+        } catch (error) { console.error(`Error approving deposit ${requestId}:`, error); showAdminMessage(adminDepositMessage, `Error: ${error.message}`, true); button.disabled = false; button.textContent = 'Approve'; }
     }
 
-     async function handleReject(requestId, button) {
-        if (!confirm(`Are you sure you want to reject Request ID: ${requestId}? This cannot be undone.`)) {
-            return;
-        }
-
-        button.disabled = true; // Disable button during processing
-        button.textContent = 'Processing...';
-
+    async function handleDepositReject(requestId, button) {
+        if (!confirm(`Reject Deposit ID: ${requestId}?`)) return;
+        button.disabled = true; button.textContent = '...';
          try {
              const response = await fetch('/api/admin/reject-deposit', {
-                 method: 'POST',
-                 headers: { 'Content-Type': 'application/json' },
+                 method: 'POST', headers: { 'Content-Type': 'application/json' },
                  body: JSON.stringify({ requestId: requestId })
              });
              const result = await response.json();
-
              if (response.ok && result.status === 'success') {
-                 showAdminMessage(`Request ${requestId} rejected successfully.`);
-                 fetchPendingRequests(); // Refresh the list
-             } else {
-                 throw new Error(result.message || 'Rejection failed.');
-             }
-         } catch (error) {
-             console.error(`Error rejecting request ${requestId}:`, error);
-             showAdminMessage(`Error rejecting request ${requestId}: ${error.message}`, true);
-             button.disabled = false; // Re-enable button on error
-              button.textContent = 'Reject';
-         }
+                 showAdminMessage(adminDepositMessage, `Request ${requestId} rejected.`);
+                 fetchPendingDeposits(); // Refresh list
+             } else { throw new Error(result.message || 'Rejection failed.'); }
+         } catch (error) { console.error(`Error rejecting deposit ${requestId}:`, error); showAdminMessage(adminDepositMessage, `Error: ${error.message}`, true); button.disabled = false; button.textContent = 'Reject'; }
      }
 
+    // --- Withdrawal Request Functions ---
+    async function fetchPendingWithdrawals() {
+        showLoading(loadingWithdrawalIndicator, true);
+        if(withdrawalTableBody) withdrawalTableBody.innerHTML = '';
+        if(adminWithdrawalMessage) adminWithdrawalMessage.textContent = '';
+        try {
+            const response = await fetch('/api/admin/pending-withdrawals'); // Call withdrawal API
+            if (!response.ok) { if (response.status === 403) throw new Error('Forbidden - Not logged in as admin?'); throw new Error(`HTTP error! Status: ${response.status}`); }
+            const requests = await response.json();
+            displayWithdrawals(requests); // Display in withdrawal table
+        } catch (error) { console.error("Error fetching pending withdrawals:", error); showAdminMessage(adminWithdrawalMessage, `Error loading withdrawals: ${error.message}`, true); }
+        finally { showLoading(loadingWithdrawalIndicator, false); }
+    }
 
-    // --- Initial Load & Refresh ---
-    fetchPendingRequests(); // Load data when page loads
-    refreshButton.addEventListener('click', fetchPendingRequests); // Refresh on button click
+    function displayWithdrawals(requests) {
+        if(!withdrawalTableBody) return;
+        if (requests.length === 0) { withdrawalTableBody.innerHTML = '<tr><td colspan="7" style="text-align: center;">No pending withdrawal requests.</td></tr>'; return; }
+        requests.forEach(req => {
+            const row = withdrawalTableBody.insertRow();
+            row.insertCell().textContent = req.id;
+            row.insertCell().textContent = req.username;
+            row.insertCell().textContent = parseFloat(req.amount).toFixed(2);
+            row.insertCell().textContent = req.upi_id;
+            row.insertCell().textContent = new Date(req.requested_at).toLocaleString();
+            const statusCell = row.insertCell(); statusCell.textContent = req.status; statusCell.classList.add(`status-${req.status}`);
+            const actionCell = row.insertCell();
+            if (req.status === 'pending') {
+                const approveButton = document.createElement('button'); approveButton.textContent = 'Approve (Paid)'; approveButton.classList.add('admin-action', 'approve'); approveButton.onclick = () => handleWithdrawalApprove(req.id, approveButton); actionCell.appendChild(approveButton);
+                const rejectButton = document.createElement('button'); rejectButton.textContent = 'Reject'; rejectButton.classList.add('admin-action', 'reject'); rejectButton.onclick = () => handleWithdrawalReject(req.id, rejectButton); actionCell.appendChild(rejectButton);
+            } else { actionCell.textContent = '-'; }
+        });
+    }
 
-});
+    async function handleWithdrawalApprove(requestId, button) {
+        if (!confirm(`Approve Withdrawal ID: ${requestId}?\n\nCONFIRM you have ALREADY SENT the funds externally.`)) return;
+        button.disabled = true; button.textContent = '...';
+        try {
+            const response = await fetch('/api/admin/approve-withdrawal', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ requestId: requestId })
+            });
+            const result = await response.json();
+            if (response.ok && result.status === 'success') {
+                showAdminMessage(adminWithdrawalMessage, `Withdrawal ${requestId} approved.`);
+                fetchPendingWithdrawals(); // Refresh list
+            } else { throw new Error(result.message || 'Approval failed.'); }
+        } catch (error) { console.error(`Error approving withdrawal ${requestId}:`, error); showAdminMessage(adminWithdrawalMessage, `Error: ${error.message}`, true); button.disabled = false; button.textContent = 'Approve (Paid)'; }
+    }
+
+    async function handleWithdrawalReject(requestId, button) {
+        if (!confirm(`Reject Withdrawal ID: ${requestId}?`)) return;
+        button.disabled = true; button.textContent = '...';
+         try {
+             const response = await fetch('/api/admin/reject-withdrawal', {
+                 method: 'POST', headers: { 'Content-Type': 'application/json' },
+                 body: JSON.stringify({ requestId: requestId })
+             });
+             const result = await response.json();
+             if (response.ok && result.status === 'success') {
+                 showAdminMessage(adminWithdrawalMessage, `Withdrawal ${requestId} rejected.`);
+                 fetchPendingWithdrawals(); // Refresh list
+             } else { throw new Error(result.message || 'Rejection failed.'); }
+         } catch (error) { console.error(`Error rejecting withdrawal ${requestId}:`, error); showAdminMessage(adminWithdrawalMessage, `Error: ${error.message}`, true); button.disabled = false; button.textContent = 'Reject'; }
+     }
+
+    // --- Initial Load & Refresh Button ---
+    function refreshAllData() {
+        fetchPendingDeposits();
+        fetchPendingWithdrawals();
+    }
+
+    refreshAllData(); // Load both lists on page load
+
+    refreshDepositsButton.addEventListener('click', fetchPendingDeposits); // Refresh only deposits
+    refreshWithdrawalsButton.addEventListener('click', fetchPendingWithdrawals); // Refresh only withdrawals
+
+}); // End DOMContentLoaded
