@@ -35,14 +35,14 @@
 
 html, body {
     height: 100%; /* Ensure body takes full height */
-    overflow: hidden; /* Prevent scroll on body */
+    /* overflow: hidden; /* Prevent scroll on body */ */
 }
 
 body {
     font-family: 'Roboto', 'Segoe UI', sans-serif; /* Modern font stack */
     background-color: #000; /* Black background for wrapper */
     color: var(--text-color);
-    display: flex;
+    /* display: flex; */
     justify-content: center;
     align-items: center;
     line-height: 1.4; /* Sensible default line height */
@@ -55,10 +55,10 @@ body {
     max-height: 850px; /* Or your desired max height */
     background: linear-gradient(to bottom, var(--bg-color), var(--bg-secondary));
     box-shadow: 0 0 20px rgba(138, 93, 255, 0.25);
-    display: flex;
+    /* display: flex; */
     flex-direction: column;
     position: relative; /* REQUIRED for absolute children positioning */
-    /* overflow: hidden; /* REQUIRED to contain absolute children/prevent wrapper scroll */ */
+    overflow: hidden; /* REQUIRED to contain absolute children/prevent wrapper scroll */
     border-radius: 8px;
 }
 
