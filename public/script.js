@@ -1,7 +1,7 @@
-// public/script.js - Client for Game Interface (with TEMPORARY Reg Success Debugging)
+// public/script.js - Reverted Version (No Recovery Code / Forgot Pwd)
 
 document.addEventListener('DOMContentLoaded', () => {
-    console.log("Full Multiplayer crash game client script loaded.");
+    console.log("Main game client script loaded (No Recovery Code Version).");
     // --- Current Time Context ---
     const now = new Date();
     console.log("Current time:", now.toLocaleString("en-IN", { timeZone: "Asia/Kolkata" }), "(IST)");
@@ -25,10 +25,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const registerButton = document.getElementById('registerButton');
     const showRegisterLink = document.getElementById('showRegister');
     const showLoginLink = document.getElementById('showLogin');
-    const forgotPasswordLink = document.getElementById('forgotPasswordLink');
-    const registrationSuccessDiv = document.getElementById('registrationSuccess'); // Still selected, but not used in this test
-    const recoveryCodeDisplay = document.getElementById('recoveryCodeDisplay'); // Still selected, but not used in this test
-    const proceedToLoginBtn = document.getElementById('proceedToLoginBtn'); // Still selected, but not used in this test
+    // Removed: forgotPasswordLink, registrationSuccessDiv, recoveryCodeDisplay, proceedToLoginBtn
     // Game elements
     const multiplierDisplay = document.getElementById('multiplier');
     const gameStatusDisplay = document.getElementById('gameStatus');
@@ -95,15 +92,18 @@ document.addEventListener('DOMContentLoaded', () => {
     function updateHistoryDisplay(historyArray) { if (!mainHistoryDisplay) return; mainHistoryDisplay.innerHTML = ''; if (!historyArray || historyArray.length === 0) { mainHistoryDisplay.innerHTML = '<span class="history-empty-message">No history yet.</span>'; return; } const itemsToDisplay = historyArray.slice(0, 12); itemsToDisplay.forEach(multiplier => { const item = document.createElement('div'); item.classList.add('history-item'); if (multiplier < 1.5) item.classList.add('low'); else if (multiplier < 5) item.classList.add('medium'); else item.classList.add('high'); item.innerHTML = `<span class="history-item-multiplier">${multiplier.toFixed(2)}x</span>`; mainHistoryDisplay.appendChild(item); }); }
     function updateSoundIcon() { if (!menuSoundIcon) return; if (soundEnabled) { menuSoundIcon.textContent = '🔊'; menuSoundIcon.classList.remove('muted'); } else { menuSoundIcon.textContent = '🔇'; menuSoundIcon.classList.add('muted'); } }
     function toggleSound() { soundEnabled = !soundEnabled; updateSoundIcon(); console.log('Sound Enabled:', soundEnabled); /* Add sound logic */ }
+    // Error/Success display helpers
     function displayLoginError(message) { if(loginError) { loginError.textContent = message; loginError.classList.remove('success-message'); loginError.classList.add('show'); } }
     function clearLoginError() { if(loginError) { loginError.textContent = ''; loginError.classList.remove('show', 'success-message'); } }
     function displayRegisterError(message) { if(registerError) { registerError.textContent = message; registerError.classList.remove('success-message'); registerError.classList.add('show'); } }
     function clearRegisterError() { if(registerError) { registerError.textContent = ''; registerError.classList.remove('show', 'success-message'); } }
+    // In-game notification helper
     function showGameNotification(message, type = 'error', duration = 3000) { if (!gameNotification) return; if (notificationTimeout) { clearTimeout(notificationTimeout); } gameNotification.textContent = message; gameNotification.className = 'game-notification'; if (type) { gameNotification.classList.add(type); } gameNotification.classList.add('show'); notificationTimeout = setTimeout(() => { gameNotification.classList.remove('show'); }, duration); }
 
+
     // --- Show/Hide Auth vs Game ---
-    function showGameScreen() { if (!authContainer || !gameWrapper) return; console.log("Showing game screen..."); if(authContainer) authContainer.classList.add('hidden'); if(registrationSuccessDiv) registrationSuccessDiv.classList.add('hidden'); if(gameWrapper) gameWrapper.classList.remove('hidden'); if(gameStatusDisplay) gameStatusDisplay.textContent = "Connecting..."; if(multiplierDisplay) multiplierDisplay.textContent = "---"; if(balanceDisplay) balanceDisplay.textContent = "..."; if(playerCountDisplay) playerCountDisplay.textContent = "-"; if(mainHistoryDisplay) mainHistoryDisplay.innerHTML = ''; closeAllPopups(); }
-    function showAuthScreen() { if (!authContainer || !gameWrapper) return; console.log("Showing auth screen..."); if(window.socket) { window.socket.disconnect(); window.socket = null; } loggedInUsername = null; if(authContainer) authContainer.classList.remove('hidden'); if(gameWrapper) gameWrapper.classList.add('hidden'); if(registrationSuccessDiv) registrationSuccessDiv.classList.add('hidden'); clearLoginError(); clearRegisterError(); if(loginForm) loginForm.reset(); if(registerForm) registerForm.reset(); if(loginForm) loginForm.classList.remove('hidden'); closeAllPopups(); }
+    function showGameScreen() { if (!authContainer || !gameWrapper) return; console.log("Showing game screen..."); if(authContainer) authContainer.classList.add('hidden'); /* No registrationSuccessDiv to hide */ if(gameWrapper) gameWrapper.classList.remove('hidden'); if(gameStatusDisplay) gameStatusDisplay.textContent = "Connecting..."; if(multiplierDisplay) multiplierDisplay.textContent = "---"; if(balanceDisplay) balanceDisplay.textContent = "..."; if(playerCountDisplay) playerCountDisplay.textContent = "-"; if(mainHistoryDisplay) mainHistoryDisplay.innerHTML = ''; closeAllPopups(); }
+    function showAuthScreen() { if (!authContainer || !gameWrapper) return; console.log("Showing auth screen..."); if(window.socket) { window.socket.disconnect(); window.socket = null; } loggedInUsername = null; if(authContainer) authContainer.classList.remove('hidden'); if(gameWrapper) gameWrapper.classList.add('hidden'); /* No registrationSuccessDiv to hide */ clearLoginError(); clearRegisterError(); if(loginForm) loginForm.reset(); if(registerForm) registerForm.reset(); if(loginForm) loginForm.classList.remove('hidden'); closeAllPopups(); }
 
     // --- WebSocket Connection ---
     function connectWebSocket() {
@@ -130,6 +130,7 @@ document.addEventListener('DOMContentLoaded', () => {
         window.socket.on('withdrawalResult', (data) => { console.log("Received withdrawalResult:", data); if (!withdrawalStatus || !submitWithdrawalButton || !withdrawAmountInput || !userUpiIdInput) return; withdrawalStatus.textContent = data.message; if (data.success === true || data.pending === true) { withdrawalStatus.className = data.success ? 'wallet-status success' : 'wallet-status pending'; withdrawAmountInput.value = ''; userUpiIdInput.value = ''; submitWithdrawalButton.disabled = (data.pending === true); withdrawAmountInput.disabled = false; userUpiIdInput.disabled = false; } else { withdrawalStatus.className = 'wallet-status error'; submitWithdrawalButton.disabled = false; withdrawAmountInput.disabled = false; userUpiIdInput.disabled = false; } });
         // Listener for forced disconnect
         window.socket.on('forceDisconnect', (data) => { console.log(`Received forceDisconnect from server. Reason: ${data?.message}`); alert(`You have been disconnected: ${data?.message || 'Account status change.'}`); showAuthScreen(); });
+        // Removed 'adminResult' listener
 
     } // End of connectWebSocket
 
@@ -161,87 +162,44 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- Event Listeners Setup ---
     // Login Form
     if (loginForm) { loginForm.addEventListener('submit', async (event) => { event.preventDefault(); clearLoginError(); const username = loginUsernameInput.value; const password = loginPasswordInput.value; if (!username || !password) { displayLoginError("Username and password required."); return; } if(loginButton) loginButton.disabled = true; try { const response = await fetch('/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username, password }) }); const data = await response.json(); if (response.ok && data.status === 'success') { loggedInUsername = data.username; showGameScreen(); connectWebSocket(); } else { displayLoginError(data.message || 'Login failed.'); } } catch (error) { console.error("Login fetch error:", error); displayLoginError('Network error or server unavailable.'); } finally { if(loginButton) loginButton.disabled = false; } }); }
-    // Registration Form
+    // Registration Form (Reverted Success Logic)
     if (registerForm) {
-        registerForm.addEventListener('submit', async (event) => {
-            event.preventDefault(); clearRegisterError();
-            const username = registerUsernameInput.value;
-            const password = registerPasswordInput.value;
-            const confirmPassword = registerConfirmPasswordInput.value;
-            const email = registerEmailInput ? registerEmailInput.value : null;
-            if (password !== confirmPassword) { displayRegisterError('Passwords do not match.'); return; }
-            if (!username || username.length < 3) { displayRegisterError('Username must be >= 3 chars.'); return; }
-            if (!password || password.length < 6) { displayRegisterError('Password must be >= 6 chars.'); return; }
-            if (!email || !email.includes('@')) { displayRegisterError('Please enter a valid email.'); return; }
-            if(registerButton) registerButton.disabled = true;
-            try {
-                const response = await fetch('/register', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username, password, email }) });
-                const data = await response.json();
+         registerForm.addEventListener('submit', async (event) => {
+             event.preventDefault(); clearRegisterError();
+             const username = registerUsernameInput.value;
+             const password = registerPasswordInput.value;
+             const confirmPassword = registerConfirmPasswordInput.value;
+             const email = registerEmailInput ? registerEmailInput.value : null;
+             if (password !== confirmPassword) { displayRegisterError('Passwords do not match.'); return; }
+             if (!username || username.length < 3) { displayRegisterError('Username must be >= 3 chars.'); return; }
+             if (!password || password.length < 6) { displayRegisterError('Password must be >= 6 chars.'); return; }
+             if (!email || !email.includes('@')) { displayRegisterError('Please enter a valid email.'); return; }
+             if(registerButton) registerButton.disabled = true;
+             try {
+                 const response = await fetch('/register', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username, password, email }) });
+                 const data = await response.json();
+                 if (response.ok && data.status === 'success') {
+                     console.log("Registration successful:", data.message);
+                     // Reverted: Show success message in login area and switch form
+                     if (loginError) {
+                         loginError.textContent = data.message || 'Registration successful! Please log in.';
+                         loginError.classList.remove('show', 'success-message');
+                         loginError.classList.add('show', 'success-message');
+                     }
+                     if(registerForm) registerForm.classList.add('hidden');
+                     if(loginForm) { loginForm.classList.remove('hidden'); loginForm.reset(); }
+                     if(registerForm) registerForm.reset();
+                     // End Reverted Logic
 
-                // *** THIS IS THE MODIFIED SUCCESS BLOCK with DEBUG LOGS ***
-                if (response.ok && data.status === 'success') {
-                    console.log("Full registration success data from server:", JSON.stringify(data));
-                    console.log("Registration successful (recoveryCode check):", data.recoveryCode);
-                    console.log("[Client DEBUG] Attempting to show recovery code div...");
-
-                    // --- DETAILED CHECKS ---
-                    console.log("[Client DEBUG] Checking if registerForm exists...");
-                    if (registerForm) {
-                        registerForm.reset();
-                         console.log("[Client DEBUG] registerForm reset.");
-                     } else { console.error("[Client DEBUG] registerForm element NOT found!"); }
-
-
-                    console.log("[Client DEBUG] Checking if authContainer exists...");
-                    if (authContainer) {
-                        console.log("[Client DEBUG] authContainer found. Attempting to hide it.");
-                        authContainer.classList.add('hidden');
-                        console.log("[Client DEBUG] authContainer hidden.");
-                    } else {
-                        console.error("[Client DEBUG] CRITICAL ERROR: authContainer element not found! Cannot hide forms.");
-                        alert("UI Error E01 occurred. Please refresh.");
-                        return; // Stop further execution within this block
-                    }
-
-                    console.log("[Client DEBUG] Checking if registrationSuccessDiv and recoveryCodeDisplay exist...");
-                    if (registrationSuccessDiv && recoveryCodeDisplay) {
-                        console.log("[Client DEBUG] Both success elements found. Attempting to display code.");
-                        recoveryCodeDisplay.textContent = data.recoveryCode || 'ERROR: CODE MISSING';
-                        console.log("[Client DEBUG] Set recoveryCodeDisplay text.");
-                        registrationSuccessDiv.classList.remove('hidden');
-                        console.log("[Client DEBUG] Should have shown recovery code div now.");
-                    } else {
-                        // Log which specific element is missing
-                        console.error("[Client DEBUG] CRITICAL ERROR: Cannot show recovery code!");
-                        console.log("[Client DEBUG] registrationSuccessDiv found:", !!registrationSuccessDiv); // true or false
-                        console.log("[Client DEBUG] recoveryCodeDisplay found:", !!recoveryCodeDisplay); // true or false
-                         // Fallback alert if elements are missing
-                        alert(`Registration Successful!\n\nIMPORTANT: Your Recovery Code is: ${data.recoveryCode || 'ERROR'}\n\nSave this code securely! It is the ONLY way to reset your password.`);
-                        // Attempt fallback UI change (show login form)
-                         if(registerForm) registerForm.classList.add('hidden'); // May already be hidden by reset?
-                         if(loginForm) { loginForm.classList.remove('hidden'); /* Don't reset login form here */ }
-                    }
-                    // --- END DETAILED CHECKS ---
-
-                } else { // Handle registration failure response from server
-                    console.error("Registration failed:", data.message);
-                    displayRegisterError(data.message || 'Registration failed.');
-                }
-            } catch (error) { // Handle network/fetch error
-                console.error("Registration fetch error:", error);
-                displayRegisterError('Network error or server unavailable.');
-            }
-             finally { // Re-enable button regardless of success/failure
-                 if(registerButton) registerButton.disabled = false;
-            }
-        });
-    } // End if(registerForm)
-
+                 } else { console.error("Registration failed:", data.message); displayRegisterError(data.message || 'Registration failed.'); }
+             } catch (error) { console.error("Registration fetch error:", error); displayRegisterError('Network error or server unavailable.'); }
+              finally { if(registerButton) registerButton.disabled = false; }
+         });
+     }
     // Switch between Login/Register links
     if (showRegisterLink) { showRegisterLink.addEventListener('click', (event) => { event.preventDefault(); clearLoginError(); if(loginForm) loginForm.classList.add('hidden'); if(registerForm) registerForm.classList.remove('hidden'); }); }
-    if (showLoginLink) { showLoginLink.addEventListener('click', (event) => { event.preventDefault(); clearRegisterError(); if(registrationSuccessDiv) registrationSuccessDiv.classList.add('hidden'); if(registerForm) registerForm.classList.add('hidden'); if(loginForm) loginForm.classList.remove('hidden'); }); }
-    // Proceed to Login Button
-    if (proceedToLoginBtn) { proceedToLoginBtn.addEventListener('click', () => { if (registrationSuccessDiv) registrationSuccessDiv.classList.add('hidden'); if (authContainer) authContainer.classList.remove('hidden'); if (registerForm) registerForm.classList.add('hidden'); if (loginForm) loginForm.classList.remove('hidden'); }); }
+    if (showLoginLink) { showLoginLink.addEventListener('click', (event) => { event.preventDefault(); clearRegisterError(); /* No registrationSuccessDiv to hide */ if(registerForm) registerForm.classList.add('hidden'); if(loginForm) loginForm.classList.remove('hidden'); }); }
+    // Removed: proceedToLoginBtn listener
     // Main Game Action Button
     if (mainActionButton) { mainActionButton.addEventListener('click', () => { if (currentServerState === 'BETTING' && !currentBetThisRound) { placeBetAction(); } else if (currentServerState === 'RUNNING' && currentBetThisRound && !hasCashedOutThisRound) { cashOutAction(); } }); }
     // Bet Adjustment Buttons
@@ -268,6 +226,5 @@ document.addEventListener('DOMContentLoaded', () => {
     updateHistoryDisplay([]); // Show empty history display initially
     if(playerCountDisplay) playerCountDisplay.textContent = '-'; // Placeholder count
     if(balanceDisplay) balanceDisplay.textContent = '...'; // Placeholder balance
-
 
 }); // End DOMContentLoaded
